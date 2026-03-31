@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Noir Chapter Storefront
 
-## Getting Started
+A premium, India-first fashion storefront built with Next.js App Router, Razorpay checkout, Supabase Auth, and Postgres-backed commerce.
 
-First, run the development server:
+## What is implemented
+
+- Modern premium storefront UI with responsive homepage, PLP, PDP, collection story pages, archive, about, FAQ, shipping, contact, wishlist, account, cart, and checkout.
+- Typed commerce and content service layers so the UI stays cleanly separated from infrastructure.
+- Persistent seeded catalogue with categories, collections, variants, inventory, compare-at pricing, storytelling metadata, and recommendation rails.
+- Postgres-backed product catalogue, variants, stock, carts, pending payment state, customer profiles, saved addresses, wishlist persistence, and mirrored customer order history.
+- Real backend-backed checkout, order creation, stock deduction, and confirmation flow.
+- Supabase Auth login/signup flow with protected customer profile, wishlist, and admin route guard support.
+- Postgres-backed customer profiles, saved addresses, wishlist persistence, and mirrored order history for signed-in customers.
+- Browser-manageable admin panel for products, drops, branding, shipping rules, payment-method toggles, and order operations.
+- API routes for products, product detail, cart, wishlist, account, orders, and checkout session.
+- SEO basics including metadata and product structured data.
+
+## Current architecture
+
+- `src/app/*`: App Router pages and API routes.
+- `src/components/*`: reusable storefront UI, cart, layout, and product components.
+- `src/lib/services/*`: typed service adapters used by pages and APIs.
+- `src/lib/supabase/*`: Supabase auth clients and environment helpers.
+- `src/lib/server/postgres.ts`: Postgres connection for catalogue, checkout, content, orders, and customer data.
+- `src/lib/services/customer-account.ts`: Postgres-backed customer profile, wishlist, address, and order history services.
+- `src/lib/data/store.ts`: seeded content and catalogue fixtures used to initialize a fresh Postgres database.
+- `supabase/schema.sql`: production database schema for auth-linked customer data, catalogue, variants, carts, pending payments, store settings, drops, FAQs, lookbooks, and orders.
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Add these in `.env.local`:
 
-## Learn More
+```bash
+RAZORPAY_KEY_ID=your_key_id
+RAZORPAY_KEY_SECRET=your_key_secret
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+POSTGRES_URL=your_supabase_pooler_or_direct_postgres_url
+```
 
-To learn more about Next.js, take a look at the following resources:
+This project now assumes a real Supabase + Postgres setup in every environment. On a fresh database, the catalogue and editorial seed data are inserted into Postgres automatically on first use.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Hosted setup for client handover
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Create a Supabase project for the client brand.
+2. In Supabase SQL Editor, run [`supabase/schema.sql`](/Users/ekambitt/Projects/shop/supabase/schema.sql).
+3. In Supabase Auth:
+   Set the site URL and redirect URLs for the production domain and approved preview/local domains.
+4. Create the first admin user in Supabase Auth.
+5. Set that user’s `app_metadata.role` to `admin`.
+6. Add the environment variables above to Vercel or the hosting platform.
+7. Deploy the app.
 
-## Deploy on Vercel
+## Production auth behavior
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `/auth/login` handles sign in and account creation.
+- `/account` and `/wishlist` require a signed-in Supabase user.
+- `/admin/*` requires a signed-in user with `app_metadata.role = admin`.
+- Signed-in checkout uses the authenticated customer profile as the order owner.
+- Verified Razorpay orders are mirrored into Postgres so they appear in the customer account history.
+- Product catalogue, inventory, cart lines, pending Razorpay payment state, store settings, drops, FAQs, lookbooks, and operational order records are sourced from Postgres.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Demo flow to test
+
+- Browse `/products`
+- Add a variant to cart
+- Apply promo code `NOIR10`
+- Go through `/checkout`
+- Place a test order
+- Open `/checkout/success/<orderNumber>` after redirect
+- Sign up at `/auth/login`
+- Check `/account` for profile and mirrored order history
+- Check `/wishlist` for saved items
+- Open `/admin`, `/admin/products`, `/admin/drops`, `/admin/settings`, and `/admin/orders` to manage the store from the browser
+
+## Admin capabilities
+
+- Create products with generated variants from comma-separated sizes and colors
+- Update product collection, pricing, and per-variant stock
+- Create and edit drops/collection story pages
+- Change brand copy, colours, contact details, shipping fees, and enabled payment methods
+- Delete products from the live catalogue
+- Review orders and update payment or fulfillment status
+
+## Production handover notes
+
+- The client can manage catalogue, drops, and core brand settings from the browser without editing code.
+- Customer identity is production-backed through Supabase Auth.
+- Customer profiles, wishlist data, saved addresses, order history, catalogue, inventory, carts, pending payment state, store settings, drops, lookbooks, FAQs, and operational orders all live in Postgres.
+- The project creates Razorpay orders, verifies signatures server-side, and checks payment capture via Razorpay’s API. Before launch, replace test keys with the client’s live keys and add production webhook handling.
+
+## Suggested next integrations
+
+### Final production cleanup
+
+- Decide whether brand/editorial management should stay in Postgres-backed admin tables or move into Sanity for a richer content-editor workflow.
+- Add production Razorpay webhooks and reconciliation jobs so payment state can be recovered independently of the browser callback.
+- Add order fulfillment tooling such as shipment IDs, courier tracking, returns, and refund workflows on top of the current Postgres order source-of-truth.
+
+### Sanity
+
+- Replace `src/lib/services/content.ts` with a Sanity client and schema-backed content queries.
+- Model homepage modules, collection story pages, archive entries, and brand pages in Sanity Studio.
+
+### Razorpay
+
+- Replace test keys with live Razorpay credentials and add webhook confirmation.
+- Only mark orders paid after server-side verification succeeds.
+
+## Verification
+
+```bash
+npm run lint
+npm run build
+```
