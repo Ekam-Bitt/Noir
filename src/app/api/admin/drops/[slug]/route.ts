@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { requireAdminApiAccess } from "@/lib/auth/api";
 import { updateCollectionStory } from "@/lib/services/content";
 
 const updateSchema = z.object({
@@ -19,6 +20,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  const denied = await requireAdminApiAccess();
+  if (denied) return denied;
   try {
     const { slug } = await params;
     const payload = updateSchema.parse(await request.json());

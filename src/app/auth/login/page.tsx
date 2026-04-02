@@ -17,6 +17,11 @@ export default async function LoginPage({
       <div className="mb-10">
         <p className="text-xs uppercase tracking-[0.32em] text-[#9e9082]">Authentication</p>
         <h1 className="mt-4 text-6xl tracking-[-0.05em] text-[#f5efe8]">Sign in for your profile, wishlist, and order history.</h1>
+        {next === "/checkout" ? (
+          <p className="mt-4 max-w-2xl text-base leading-8 text-[#b9ab9d]">
+            Create an account or sign in before checkout so your order history, address, and contact details stay saved for the next purchase.
+          </p>
+        ) : null}
       </div>
 
       {params.error ? (

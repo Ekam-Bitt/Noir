@@ -72,6 +72,7 @@ export async function getCustomerProfileForUser(user: User): Promise<CustomerPro
   `;
 
   const addresses = await sql<{
+    id: string;
     name: string;
     line1: string;
     line2: string | null;
@@ -80,8 +81,9 @@ export async function getCustomerProfileForUser(user: User): Promise<CustomerPro
     postal_code: string;
     country: string;
     phone: string | null;
+    is_default: boolean;
   }[]>`
-    select name, line1, line2, city, state, postal_code, country, phone
+    select id, name, line1, line2, city, state, postal_code, country, phone, is_default
     from customer_addresses
     where user_id = ${user.id}::uuid
     order by is_default desc, created_at desc
@@ -92,6 +94,7 @@ export async function getCustomerProfileForUser(user: User): Promise<CustomerPro
     email: profile?.email ?? user.email ?? "",
     phone: profile?.phone ?? String(user.user_metadata?.phone ?? "").trim(),
     addresses: addresses.map((address) => ({
+      id: address.id,
       name: address.name,
       line1: address.line1,
       line2: address.line2 ?? undefined,
@@ -100,8 +103,178 @@ export async function getCustomerProfileForUser(user: User): Promise<CustomerPro
       postalCode: address.postal_code,
       country: address.country,
       phone: address.phone ?? "",
+      isDefault: address.is_default,
     })),
   };
+}
+
+type CustomerAddressInput = {
+  name: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  isDefault?: boolean;
+};
+
+function normalizeAddress(input: CustomerAddressInput) {
+  return {
+    name: input.name.trim(),
+    line1: input.line1.trim(),
+    line2: input.line2?.trim() || null,
+    city: input.city.trim(),
+    state: input.state.trim(),
+    postalCode: input.postalCode.trim(),
+    country: input.country.trim(),
+    phone: input.phone.trim(),
+    isDefault: Boolean(input.isDefault),
+  };
+}
+
+export async function createCustomerAddressForUser(userId: string, input: CustomerAddressInput) {
+  const sql = getSql();
+  const address = normalizeAddress(input);
+
+  await sql`
+    update customer_profiles
+    set
+      full_name = ${address.name},
+      phone = ${address.phone},
+      updated_at = timezone('utc', now())
+    where id = ${userId}::uuid
+  `;
+
+  if (address.isDefault) {
+    await sql`
+      update customer_addresses
+      set is_default = false
+      where user_id = ${userId}::uuid
+    `;
+  }
+
+  const [created] = await sql<{ id: string }[]>`
+    insert into customer_addresses (
+      user_id,
+      name,
+      line1,
+      line2,
+      city,
+      state,
+      postal_code,
+      country,
+      phone,
+      is_default
+    ) values (
+      ${userId}::uuid,
+      ${address.name},
+      ${address.line1},
+      ${address.line2},
+      ${address.city},
+      ${address.state},
+      ${address.postalCode},
+      ${address.country},
+      ${address.phone},
+      ${address.isDefault}
+    )
+    returning id
+  `;
+
+  return created?.id;
+}
+
+export async function updateCustomerAddressForUser(userId: string, addressId: string, input: CustomerAddressInput) {
+  const sql = getSql();
+  const address = normalizeAddress(input);
+
+  await sql`
+    update customer_profiles
+    set
+      full_name = ${address.name},
+      phone = ${address.phone},
+      updated_at = timezone('utc', now())
+    where id = ${userId}::uuid
+  `;
+
+  if (address.isDefault) {
+    await sql`
+      update customer_addresses
+      set is_default = false
+      where user_id = ${userId}::uuid
+        and id <> ${addressId}::uuid
+    `;
+  }
+
+  await sql`
+    update customer_addresses
+    set
+      name = ${address.name},
+      line1 = ${address.line1},
+      line2 = ${address.line2},
+      city = ${address.city},
+      state = ${address.state},
+      postal_code = ${address.postalCode},
+      country = ${address.country},
+      phone = ${address.phone},
+      is_default = ${address.isDefault}
+    where id = ${addressId}::uuid
+      and user_id = ${userId}::uuid
+  `;
+}
+
+export async function deleteCustomerAddressForUser(userId: string, addressId: string) {
+  const sql = getSql();
+
+  const [existing] = await sql<{ id: string; is_default: boolean }[]>`
+    select id, is_default
+    from customer_addresses
+    where id = ${addressId}::uuid
+      and user_id = ${userId}::uuid
+    limit 1
+  `;
+
+  if (!existing) {
+    throw new Error("Address not found.");
+  }
+
+  await sql`
+    delete from customer_addresses
+    where id = ${addressId}::uuid
+      and user_id = ${userId}::uuid
+  `;
+
+  if (existing.is_default) {
+    await sql`
+      update customer_addresses
+      set is_default = true
+      where id = (
+        select id
+        from customer_addresses
+        where user_id = ${userId}::uuid
+        order by created_at desc
+        limit 1
+      )
+    `;
+  }
+}
+
+export async function setDefaultCustomerAddressForUser(userId: string, addressId: string) {
+  const sql = getSql();
+
+  await sql`
+    update customer_addresses
+    set is_default = false
+    where user_id = ${userId}::uuid
+  `;
+
+  await sql`
+    update customer_addresses
+    set is_default = true
+    where id = ${addressId}::uuid
+      and user_id = ${userId}::uuid
+  `;
 }
 
 export async function getOrderHistoryForUser(user: User): Promise<OrderSummary[]> {
@@ -116,10 +289,36 @@ export async function getOrderHistoryForUser(user: User): Promise<OrderSummary[]
     created_at: string;
     payment_status: OrderSummary["paymentStatus"];
     fulfillment_status: OrderSummary["fulfillmentStatus"];
+    subtotal: number;
+    discount_total: number;
+    shipping_fee: number;
+    tax_total: number;
     grand_total: number;
+    payment_provider: string;
+    payment_reference: string;
+    shipping_method: string;
+    customer_name: string | null;
+    customer_phone: string | null;
+    address_line1: string | null;
+    address_line2: string | null;
+    city: string | null;
+    state: string | null;
+    postal_code: string | null;
+    country: string | null;
     product_name: string;
+    product_slug: string;
+    unit_price: number;
     size: string;
+    color: string;
     quantity: number;
+    images: Array<{
+      id: string;
+      label: string;
+      palette: [string, string, string];
+      url?: string;
+      path?: string;
+      alt?: string;
+    }> | null;
   }[]>`
     select
       o.id,
@@ -127,12 +326,34 @@ export async function getOrderHistoryForUser(user: User): Promise<OrderSummary[]
       o.created_at,
       o.payment_status,
       o.fulfillment_status,
+      o.subtotal,
+      o.discount_total,
+      o.shipping_fee,
+      o.tax_total,
       o.grand_total,
+      o.payment_provider,
+      o.payment_reference,
+      o.shipping_method,
+      co.customer_name,
+      co.customer_phone,
+      co.address_line1,
+      co.address_line2,
+      co.city,
+      co.state,
+      co.postal_code,
+      co.country,
       i.product_name,
+      i.product_slug,
+      i.unit_price,
       i.size,
+      i.color,
       i.quantity
+      ,
+      p.images
     from customer_orders o
+    left join commerce_orders co on co.order_number = o.order_number
     left join customer_order_items i on i.order_id = o.id
+    left join catalog_products p on p.slug = i.product_slug
     where o.user_id = ${user.id}::uuid
     order by o.created_at desc, i.created_at asc
   `;
@@ -145,8 +366,12 @@ export async function getOrderHistoryForUser(user: User): Promise<OrderSummary[]
       if (row.product_name) {
         existing.items.push({
           productName: row.product_name,
+          productSlug: row.product_slug,
+          productImage: row.images?.[0],
           size: row.size,
+          color: row.color,
           quantity: row.quantity,
+          unitPrice: row.unit_price,
         });
       }
       return;
@@ -155,16 +380,41 @@ export async function getOrderHistoryForUser(user: User): Promise<OrderSummary[]
     mapped.set(row.id, {
       id: row.id,
       orderNumber: row.order_number,
-      createdAt: row.created_at.slice(0, 10),
+      createdAt: new Date(row.created_at).toISOString().slice(0, 10),
+      expectedAt: new Date(new Date(row.created_at).getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       paymentStatus: row.payment_status,
       fulfillmentStatus: row.fulfillment_status,
+      subtotal: row.subtotal,
+      discountTotal: row.discount_total,
+      shippingFee: row.shipping_fee,
+      taxTotal: row.tax_total,
       total: row.grand_total,
+      paymentProvider: row.payment_provider,
+      paymentReference: row.payment_reference,
+      shippingMethod: row.shipping_method,
+      contactName: row.customer_name ?? undefined,
+      contactPhone: row.customer_phone ?? undefined,
+      shippingAddress:
+        row.address_line1 && row.city && row.state && row.postal_code && row.country
+          ? {
+              line1: row.address_line1,
+              line2: row.address_line2 ?? undefined,
+              city: row.city,
+              state: row.state,
+              postalCode: row.postal_code,
+              country: row.country,
+            }
+          : undefined,
       items: row.product_name
         ? [
             {
               productName: row.product_name,
+              productSlug: row.product_slug,
+              productImage: row.images?.[0],
               size: row.size,
+              color: row.color,
               quantity: row.quantity,
+              unitPrice: row.unit_price,
             },
           ]
         : [],
@@ -259,10 +509,53 @@ export async function upsertCustomerAddressForUser(
   const sql = getSql();
 
   await sql`
+    update customer_profiles
+    set
+      full_name = ${address.name},
+      phone = ${address.phone},
+      updated_at = timezone('utc', now())
+    where id = ${userId}::uuid
+  `;
+
+  const normalized = {
+    line1: address.line1.trim(),
+    line2: address.line2?.trim() || null,
+    city: address.city.trim(),
+    state: address.state.trim(),
+    postalCode: address.postalCode.trim(),
+    country: address.country.trim(),
+  };
+
+  const [existing] = await sql<{ id: string }[]>`
+    select id
+    from customer_addresses
+    where user_id = ${userId}::uuid
+      and lower(line1) = lower(${normalized.line1})
+      and coalesce(lower(line2), '') = coalesce(lower(${normalized.line2}), '')
+      and lower(city) = lower(${normalized.city})
+      and lower(state) = lower(${normalized.state})
+      and postal_code = ${normalized.postalCode}
+      and lower(country) = lower(${normalized.country})
+    limit 1
+  `;
+
+  await sql`
     update customer_addresses
     set is_default = false
     where user_id = ${userId}::uuid
   `;
+
+  if (existing) {
+    await sql`
+      update customer_addresses
+      set
+        name = ${address.name},
+        phone = ${address.phone},
+        is_default = true
+      where id = ${existing.id}::uuid
+    `;
+    return;
+  }
 
   await sql`
     insert into customer_addresses (
@@ -279,12 +572,12 @@ export async function upsertCustomerAddressForUser(
     ) values (
       ${userId}::uuid,
       ${address.name},
-      ${address.line1},
-      ${address.line2 ?? null},
-      ${address.city},
-      ${address.state},
-      ${address.postalCode},
-      ${address.country},
+      ${normalized.line1},
+      ${normalized.line2},
+      ${normalized.city},
+      ${normalized.state},
+      ${normalized.postalCode},
+      ${normalized.country},
       ${address.phone},
       true
     )

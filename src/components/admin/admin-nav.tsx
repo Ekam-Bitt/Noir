@@ -27,12 +27,6 @@ export function AdminNav() {
       >
         Drops
       </Link>
-      <Link
-        href="/admin/settings"
-        className="rounded-full border border-[#312a26] px-4 py-2 text-sm text-[#f5efe8]"
-      >
-        Settings
-      </Link>
     </div>
   );
 }

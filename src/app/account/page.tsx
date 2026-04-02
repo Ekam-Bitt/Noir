@@ -1,7 +1,8 @@
 import { signOutAction } from "@/app/auth/actions";
+import { AccountOrderHistory } from "@/components/account/account-order-history";
+import Link from "next/link";
 import { requireAuthenticatedViewer } from "@/lib/auth/server";
 import { getCustomerProfileForUser, getOrderHistoryForUser, syncCustomerProfile } from "@/lib/services/customer-account";
-import { formatINR } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +34,18 @@ export default async function AccountPage() {
             </button>
           </form>
           <div className="mt-6 border-t border-[#26211f] pt-6">
-            <p className="text-xs uppercase tracking-[0.24em] text-[#9e9082]">Saved address</p>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-[#9e9082]">Saved address</p>
+              <Link href="/account/addresses" className="text-xs uppercase tracking-[0.18em] text-[#c7b9ab] transition hover:text-[#f5efe8]">
+                Manage
+              </Link>
+            </div>
             {profile.addresses.length ? (
-              profile.addresses.map((address) => (
-                <div key={`${address.line1}-${address.postalCode}`} className="mt-3 text-sm leading-7 text-[#c7b9ab]">
+              profile.addresses.map((address, index) => (
+                <div
+                  key={address.id ?? `${address.line1}-${address.postalCode}-${index}`}
+                  className="mt-3 text-sm leading-7 text-[#c7b9ab]"
+                >
                   <p>{address.name}</p>
                   <p>{address.line1}</p>
                   <p>{address.city}, {address.state} {address.postalCode}</p>
@@ -50,42 +59,7 @@ export default async function AccountPage() {
             )}
           </div>
         </aside>
-        <section className="space-y-4">
-          {orders.length ? (
-            orders.map((order) => (
-              <div key={order.id} className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-[#9e9082]">{order.createdAt}</p>
-                    <h2 className="mt-2 text-3xl tracking-[-0.04em] text-[#f5efe8]">{order.orderNumber}</h2>
-                    <p className="mt-3 text-sm text-[#c7b9ab]">
-                      Payment: {order.paymentStatus} / Fulfillment: {order.fulfillmentStatus}
-                    </p>
-                  </div>
-                  <div className="text-left md:text-right">
-                    <p className="text-sm text-[#9e9082]">Order total</p>
-                    <p className="mt-1 text-lg text-[#f5efe8]">{formatINR(order.total)}</p>
-                  </div>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  {order.items.map((item) => (
-                    <span
-                      key={`${order.id}-${item.productName}`}
-                      className="rounded-full border border-[#312b27] px-3 py-2 text-sm text-[#c7b9ab]"
-                    >
-                      {item.productName} / {item.size} / Qty {item.quantity}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-[2rem] border border-dashed border-[#2f2926] px-6 py-16 text-center">
-              <p className="text-3xl tracking-[-0.04em] text-[#f5efe8]">No orders yet.</p>
-              <p className="mt-3 text-[#a7988b]">Completed purchases will appear here once checkout is connected to your account.</p>
-            </div>
-          )}
-        </section>
+        <AccountOrderHistory orders={orders} />
       </div>
     </div>
   );

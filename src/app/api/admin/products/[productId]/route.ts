@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { requireAdminApiAccess } from "@/lib/auth/api";
 import { deleteAdminProduct, updateAdminProduct } from "@/lib/services/commerce";
+
+const imageSchema = z.object({
+  id: z.string().min(2),
+  label: z.string().min(2),
+  palette: z.tuple([z.string(), z.string(), z.string()]),
+  url: z.string().url().optional(),
+  path: z.string().min(2).optional(),
+  alt: z.string().min(2).optional(),
+});
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -16,6 +26,7 @@ const updateSchema = z.object({
   story: z.string().min(10).optional(),
   modelInfo: z.string().min(2).optional(),
   shippingNote: z.string().min(2).optional(),
+  images: z.array(imageSchema).optional(),
   variantStock: z.record(z.string(), z.number().int().nonnegative()).optional(),
 });
 
@@ -23,6 +34,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ productId: string }> },
 ) {
+  const denied = await requireAdminApiAccess();
+  if (denied) return denied;
   try {
     const { productId } = await params;
     const payload = updateSchema.parse(await request.json());
@@ -44,6 +57,8 @@ export async function DELETE(
   _: Request,
   { params }: { params: Promise<{ productId: string }> },
 ) {
+  const denied = await requireAdminApiAccess();
+  if (denied) return denied;
   try {
     const { productId } = await params;
     await deleteAdminProduct(productId);

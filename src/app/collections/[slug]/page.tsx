@@ -1,9 +1,12 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ProductGrid } from "@/components/product/product-grid";
 import { GradientPanel } from "@/components/ui/gradient-panel";
 import { listProducts } from "@/lib/services/commerce";
 import { getCollectionStory } from "@/lib/services/content";
+
+export const dynamic = "force-dynamic";
 
 export default async function CollectionPage({
   params,
@@ -30,7 +33,23 @@ export default async function CollectionPage({
             {story.mood}
           </p>
         </div>
-        <GradientPanel palette={story.palette} label="Collection story" className="min-h-[520px]" />
+        {story.image ? (
+          <div className="relative min-h-[520px] overflow-hidden rounded-[2rem] border border-white/10">
+            <Image
+              src={story.image}
+              alt={story.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 45vw"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(10,8,7,0.4))]" />
+            <div className="absolute bottom-4 left-4 rounded-full border border-white/20 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-[0.32em] text-white/80 backdrop-blur">
+              Collection story
+            </div>
+          </div>
+        ) : (
+          <GradientPanel palette={story.palette} label="Collection story" className="min-h-[520px]" />
+        )}
       </section>
 
 
@@ -41,7 +60,14 @@ export default async function CollectionPage({
           <p className="text-xs uppercase tracking-[0.32em] text-[#9e9082]">Shop the story</p>
           <h2 className="mt-3 text-4xl tracking-[-0.04em] text-[#f5efe8]">Featured pieces from {story.title}</h2>
         </div>
-        <ProductGrid products={featured} />
+        {featured.length ? (
+          <ProductGrid products={featured} />
+        ) : (
+          <div className="rounded-[2rem] border border-dashed border-[#2f2926] px-6 py-16 text-center">
+            <p className="text-3xl tracking-[-0.04em] text-[#f5efe8]">No featured products yet.</p>
+            <p className="mt-3 text-[#a7988b]">Assign products to this collection from admin once inventory is live.</p>
+          </div>
+        )}
       </section>
     </div>
   );

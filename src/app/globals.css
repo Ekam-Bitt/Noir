@@ -6,6 +6,18 @@
   --brand-canvas: #0f0c0b;
   --brand-ink: #f5efe8;
   --brand-accent: #f1ddc7;
+  --font-body:
+    "Avenir Next",
+    "Manrope",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  --font-display:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    "Cormorant Garamond",
+    serif;
 }
 
 @theme inline {
@@ -29,6 +41,7 @@ body {
   background-repeat: no-repeat;
   color: var(--brand-ink);
   font-family: var(--font-body), sans-serif;
+  overflow-x: hidden;
 }
 
 a {
@@ -57,4 +70,18 @@ h4,
   background-size: 24px 24px;
   opacity: 0.2;
   pointer-events: none;
+}
+
+.hairline {
+  position: relative;
+}
+
+.hairline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
 }

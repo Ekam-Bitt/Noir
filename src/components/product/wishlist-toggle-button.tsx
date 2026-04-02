@@ -27,7 +27,7 @@ export function WishlistToggleButton({ productId }: { productId: string }) {
           }
           setMessage("Wishlist updated.");
         }}
-        className="w-full rounded-full border border-[#352f2c] px-6 py-4 text-sm font-medium uppercase tracking-[0.18em] text-[#f5efe8]"
+        className="w-full rounded-full border border-[#352f2c] px-6 py-4 text-[12px] font-medium uppercase tracking-[0.22em] text-[#f5efe8]"
       >
         Add To Wishlist
       </button>

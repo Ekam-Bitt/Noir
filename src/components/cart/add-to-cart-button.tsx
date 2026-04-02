@@ -35,7 +35,7 @@ export function AddToCartButton({
           setAdded(true);
           window.setTimeout(() => setAdded(false), 1400);
         }}
-        className="w-full rounded-full bg-[#f1ddc7] px-6 py-4 text-sm font-semibold uppercase tracking-[0.24em] text-[#191614] transition hover:bg-white disabled:cursor-not-allowed disabled:bg-[#3a332e] disabled:text-[#8e8378]"
+        className="w-full rounded-full bg-[#f1ddc7] px-6 py-4 text-[12px] font-semibold uppercase tracking-[0.26em] text-[#191614] transition hover:bg-white disabled:cursor-not-allowed disabled:bg-[#3a332e] disabled:text-[#8e8378]"
       >
         {disabled ? "Sold Out" : added ? "Added To Bag" : "Add To Bag"}
       </button>

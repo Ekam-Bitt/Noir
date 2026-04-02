@@ -11,7 +11,7 @@ A premium, India-first fashion storefront built with Next.js App Router, Razorpa
 - Real backend-backed checkout, order creation, stock deduction, and confirmation flow.
 - Supabase Auth login/signup flow with protected customer profile, wishlist, and admin route guard support.
 - Postgres-backed customer profiles, saved addresses, wishlist persistence, and mirrored order history for signed-in customers.
-- Browser-manageable admin panel for products, drops, branding, shipping rules, payment-method toggles, and order operations.
+- Browser-manageable admin panel for products, drops, and order operations.
 - API routes for products, product detail, cart, wishlist, account, orders, and checkout session.
 - SEO basics including metadata and product structured data.
 
@@ -24,7 +24,7 @@ A premium, India-first fashion storefront built with Next.js App Router, Razorpa
 - `src/lib/server/postgres.ts`: Postgres connection for catalogue, checkout, content, orders, and customer data.
 - `src/lib/services/customer-account.ts`: Postgres-backed customer profile, wishlist, address, and order history services.
 - `src/lib/data/store.ts`: seeded content and catalogue fixtures used to initialize a fresh Postgres database.
-- `supabase/schema.sql`: production database schema for auth-linked customer data, catalogue, variants, carts, pending payments, store settings, drops, FAQs, lookbooks, and orders.
+- `supabase/migrations/*`: production database and storage migrations for auth-linked customer data, catalogue, variants, carts, pending payments, store settings, drops, FAQs, lookbooks, orders, and product image storage.
 
 ## Run locally
 
@@ -44,6 +44,7 @@ RAZORPAY_KEY_ID=your_key_id
 RAZORPAY_KEY_SECRET=your_key_secret
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 POSTGRES_URL=your_supabase_pooler_or_direct_postgres_url
 ```
 
@@ -52,7 +53,7 @@ This project now assumes a real Supabase + Postgres setup in every environment. 
 ## Hosted setup for client handover
 
 1. Create a Supabase project for the client brand.
-2. In Supabase SQL Editor, run [`supabase/schema.sql`](/Users/ekambitt/Projects/shop/supabase/schema.sql).
+2. Apply the database migrations in [`supabase/migrations/20240101000000_init.sql`](/Users/ekambitt/Projects/shop/supabase/migrations/20240101000000_init.sql) and [`supabase/migrations/20260401000000_product_images_storage.sql`](/Users/ekambitt/Projects/shop/supabase/migrations/20260401000000_product_images_storage.sql), or run the full migration set through the Supabase CLI.
 3. In Supabase Auth:
    Set the site URL and redirect URLs for the production domain and approved preview/local domains.
 4. Create the first admin user in Supabase Auth.
@@ -80,22 +81,24 @@ This project now assumes a real Supabase + Postgres setup in every environment. 
 - Sign up at `/auth/login`
 - Check `/account` for profile and mirrored order history
 - Check `/wishlist` for saved items
-- Open `/admin`, `/admin/products`, `/admin/drops`, `/admin/settings`, and `/admin/orders` to manage the store from the browser
+- Open `/admin`, `/admin/products`, `/admin/drops`, and `/admin/orders` to manage the store from the browser
 
 ## Admin capabilities
 
 - Create products with generated variants from comma-separated sizes and colors
+- Upload hosted product images from inventory and serve them through Supabase Storage public URLs
 - Update product collection, pricing, and per-variant stock
 - Create and edit drops/collection story pages
-- Change brand copy, colours, contact details, shipping fees, and enabled payment methods
 - Delete products from the live catalogue
 - Review orders and update payment or fulfillment status
 
 ## Production handover notes
 
-- The client can manage catalogue, drops, and core brand settings from the browser without editing code.
+- The client can manage catalogue, drops, and orders from the browser without editing code.
+- Brand voice, visual direction, homepage composition, and global storefront settings are developer-controlled.
 - Customer identity is production-backed through Supabase Auth.
 - Customer profiles, wishlist data, saved addresses, order history, catalogue, inventory, carts, pending payment state, store settings, drops, lookbooks, FAQs, and operational orders all live in Postgres.
+- Product images are stored in Supabase Storage, uploaded through admin-only API routes, and served from the `product-images` public bucket.
 - The project creates Razorpay orders, verifies signatures server-side, and checks payment capture via Razorpay’s API. Before launch, replace test keys with the client’s live keys and add production webhook handling.
 
 ## Suggested next integrations

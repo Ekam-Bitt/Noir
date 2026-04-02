@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -13,9 +14,16 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
-      <div className="mb-10 flex flex-col gap-3">
-        <p className="text-xs uppercase tracking-[0.32em] text-[#9e9082]">Cart</p>
-        <h1 className="text-6xl tracking-[-0.05em] text-[#f5efe8]">Your bag</h1>
+      <div className="mb-10">
+        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-[#9e9082]">
+          <span className="text-[#f5efe8]">Cart</span>
+          <span>/</span>
+          <Link href="/checkout" className="transition hover:text-[#f5efe8]">
+            Checkout
+          </Link>
+          <span>/</span>
+          <span>Payment</span>
+        </div>
       </div>
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
@@ -23,7 +31,19 @@ export default function CartPage() {
             cart.lines.map((line) => (
               <div key={line.id} className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-5">
                 <div className="flex flex-col gap-4 sm:flex-row">
-                  <GradientPanel palette={line.accent} className="h-44 w-full rounded-[1.5rem] sm:w-36" />
+                  {line.image ? (
+                    <div className="relative h-44 w-full flex-shrink-0 overflow-hidden rounded-[1.5rem] sm:w-36">
+                      <Image
+                        src={line.image}
+                        alt={line.name}
+                        fill
+                        className="object-cover"
+                        sizes="(min-width: 640px) 144px, 100vw"
+                      />
+                    </div>
+                  ) : (
+                    <GradientPanel palette={line.accent} className="h-44 w-full rounded-[1.5rem] sm:w-36" />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -85,7 +105,7 @@ export default function CartPage() {
         </div>
 
         <aside className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6 lg:sticky lg:top-28 lg:h-fit">
-          <h2 className="text-3xl tracking-[-0.04em] text-[#f5efe8]">Order summary</h2>
+          <h2 className="text-3xl tracking-[-0.04em] text-[#f5efe8]">Cart</h2>
           {error ? <p className="mt-4 text-sm text-[#d79f8d]">{error}</p> : null}
           <div className="mt-6 space-y-3 text-sm text-[#c7b9ab]">
             <div className="flex justify-between">

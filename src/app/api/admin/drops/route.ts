@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { requireAdminApiAccess } from "@/lib/auth/api";
 import {
   createCollectionStory,
   getCollectionStories,
@@ -20,11 +21,15 @@ const dropSchema = z.object({
 });
 
 export async function GET() {
+  const denied = await requireAdminApiAccess();
+  if (denied) return denied;
   const drops = await getCollectionStories();
   return NextResponse.json({ drops });
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdminApiAccess();
+  if (denied) return denied;
   try {
     const payload = dropSchema.parse(await request.json());
     const drop = await createCollectionStory(payload);

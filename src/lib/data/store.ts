@@ -97,11 +97,41 @@ export const defaultStoreSettings: StoreSettings = {
 
 export const products: ProductDetail[] = [];
 
-export const collectionStories: CollectionStory[] = [];
+export const collectionStories: CollectionStory[] = [
+  {
+    slug: "winter-chapter",
+    title: "Winter 2026: The Shadow Realm",
+    eyebrow: "CHAPTER ONE",
+    intro: "A collection born in the cold and the dark.",
+    narrative: "The Winter Chapter explores the intersection of thermal protection and cinematic noir. Each piece is built to withstand the elements without sacrificing the silhouette.",
+    mood: "Cinematic, Dark, Precise",
+    palette: ["#0f0c0b", "#1a1614", "#f1ddc7"],
+    featuredProductSlugs: [],
+    isVisible: true,
+    isFeatured: true,
+  }
+];
 
-export const lookbookEntries: LookbookEntry[] = [];
+export const lookbookEntries: LookbookEntry[] = [
+  {
+    slug: "shadow-look-01",
+    title: "Night Navigator",
+    season: "Winter 26",
+    caption: "Layering the Phantom Parka with the Vesper Vest for ultimate urban utility.",
+    palette: ["#0a0a0a", "#1a1a1a", "#2a2a2a"],
+  }
+];
 
-export const faqs: FAQItem[] = [];
+export const faqs: FAQItem[] = [
+  {
+    question: "Do you ship worldwide?",
+    answer: "Currently we only ship within India. Worldwide shipping is planned for Late 2026.",
+  },
+  {
+    question: "How do I care for my Noir pieces?",
+    answer: "Most of our outerwear requires dry cleaning. Please refer to the specific care instructions on each product page.",
+  }
+];
 
 export const accountProfile: CustomerProfile = {
   name: "",

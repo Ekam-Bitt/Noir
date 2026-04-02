@@ -22,7 +22,7 @@ export default async function CheckoutSuccessPage({
         <p className="text-xs uppercase tracking-[0.32em] text-[#9e9082]">Order confirmed</p>
         <h1 className="mt-4 text-6xl tracking-[-0.05em] text-[#f5efe8]">{order.orderNumber}</h1>
         <p className="mt-4 max-w-2xl text-base leading-8 text-[#c7b9ab]">
-          Inventory was decremented, the cart was cleared, and a confirmation email log entry was created. Payment status is currently <span className="text-[#f5efe8]">{order.paymentStatus}</span>.
+          Your order has been placed successfully. Payment status is currently <span className="text-[#f5efe8]">{order.paymentStatus}</span>.
         </p>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">

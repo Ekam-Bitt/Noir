@@ -498,6 +498,10 @@ function computeTotals(
 }
 
 function toCard(product: ProductDetail): ProductCard {
+  const images = Array.isArray(product.images) ? product.images : [];
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const tags = Array.isArray(product.tags) ? product.tags : [];
+
   return {
     id: product.id,
     slug: product.slug,
@@ -508,8 +512,9 @@ function toCard(product: ProductDetail): ProductCard {
     price: product.price,
     compareAtPrice: product.compareAtPrice,
     accent: product.accent,
-    soldOut: product.variants.every((variant) => variant.stock < 1),
-    tags: product.tags,
+    primaryImage: images[0],
+    soldOut: variants.every((variant) => variant.stock < 1),
+    tags,
   };
 }
 
@@ -536,18 +541,18 @@ function mergeSqlProducts(rows: SqlProductRow[], variants: SqlVariantRow[]) {
       compareAtPrice: row.compare_at_price ?? undefined,
       accent: row.accent,
       soldOut: productVariants.every((variant) => variant.stock < 1),
-      tags: row.tags,
+      tags: Array.isArray(row.tags) ? row.tags : [],
       description: row.description,
       fit: row.fit,
       fabric: row.fabric,
-      care: row.care,
+      care: Array.isArray(row.care) ? row.care : [],
       story: row.story,
       modelInfo: row.model_info,
       shippingNote: row.shipping_note,
-      images: row.images,
+      images: Array.isArray(row.images) ? row.images : [],
       variants: productVariants,
-      sizes: row.sizes,
-      colors: row.colors,
+      sizes: Array.isArray(row.sizes) ? row.sizes : [],
+      colors: Array.isArray(row.colors) ? row.colors : [],
     } satisfies ProductDetail;
   });
 }
@@ -624,6 +629,7 @@ async function getSqlCartLines(sessionId: string): Promise<{ promoCode?: string;
     slug: string;
     product_name: string;
     accent: [string, string, string];
+    images: Array<{ url?: string; path?: string }>;
     variant_id: string;
     size: string;
     color: string;
@@ -637,6 +643,7 @@ async function getSqlCartLines(sessionId: string): Promise<{ promoCode?: string;
       p.slug,
       p.name as product_name,
       p.accent,
+      p.images,
       v.id as variant_id,
       v.size,
       v.color,
@@ -662,6 +669,7 @@ async function getSqlCartLines(sessionId: string): Promise<{ promoCode?: string;
       unitPrice: row.unit_price,
       accent: row.accent,
       maxQuantity: row.stock,
+      image: row.images?.[0]?.url ?? row.images?.[0]?.path,
     })),
   };
 }
@@ -1278,6 +1286,7 @@ type AdminProductPayload = {
   sizes: string[];
   tags: string[];
   initialStock: number;
+  images?: ProductDetail["images"];
 };
 
 export async function createAdminProduct(payload: AdminProductPayload) {
@@ -1291,11 +1300,15 @@ export async function createAdminProduct(payload: AdminProductPayload) {
   }
 
   const productId = `p-${crypto.randomUUID().slice(0, 8)}`;
-  const images = [0, 1, 2].map((index) => ({
-    id: `img-${crypto.randomUUID().slice(0, 8)}`,
-    label: ["Campaign", "Studio", "Detail"][index] ?? `Image ${index + 1}`,
-    palette: DEFAULT_ACCENT,
-  }));
+  const images =
+    payload.images?.length
+      ? payload.images
+      : [0, 1, 2].map((index) => ({
+          id: `img-${crypto.randomUUID().slice(0, 8)}`,
+          label: ["Campaign", "Studio", "Detail"][index] ?? `Image ${index + 1}`,
+          palette: DEFAULT_ACCENT,
+        }));
+  const accent = images[0]?.palette ?? DEFAULT_ACCENT;
   const variants = payload.colors.flatMap((color) =>
     payload.sizes.map((size) => ({
       id: `v-${crypto.randomUUID().slice(0, 8)}`,
@@ -1312,7 +1325,7 @@ export async function createAdminProduct(payload: AdminProductPayload) {
       accent, tags, description, fit, fabric, care, story, model_info, shipping_note, images, sizes, colors
     ) values (
       ${productId}, ${payload.slug}, ${payload.name}, ${payload.category}, ${payload.subcategory}, ${payload.collection},
-      ${payload.price}, ${payload.compareAtPrice ?? null}, ${sql.json(DEFAULT_ACCENT)}, ${sql.json(payload.tags)},
+      ${payload.price}, ${payload.compareAtPrice ?? null}, ${sql.json(accent)}, ${sql.json(payload.tags)},
       ${payload.description}, ${payload.fit}, ${payload.fabric}, ${sql.json(["Cold wash", "Line dry", "Handle with care"])},
       ${payload.story}, ${payload.modelInfo}, ${payload.shippingNote}, ${sql.json(images)}, ${sql.json(payload.sizes)}, ${sql.json(payload.colors)}
     )
@@ -1347,7 +1360,7 @@ export async function updateAdminProduct(
       | "modelInfo"
       | "shippingNote"
     >
-  > & { variantStock?: Record<string, number> },
+  > & { variantStock?: Record<string, number>; images?: ProductDetail["images"] },
 ) {
   const sql = getSql();
   await ensureCommerceSeeded();
@@ -1366,12 +1379,14 @@ export async function updateAdminProduct(
       collection_name = ${payload.collection ?? product.collection},
       price = ${payload.price ?? product.price},
       compare_at_price = ${payload.compareAtPrice ?? product.compareAtPrice ?? null},
+      accent = ${sql.json(payload.images?.[0]?.palette ?? product.accent)},
       description = ${payload.description ?? product.description},
       fit = ${payload.fit ?? product.fit},
       fabric = ${payload.fabric ?? product.fabric},
       story = ${payload.story ?? product.story},
       model_info = ${payload.modelInfo ?? product.modelInfo},
       shipping_note = ${payload.shippingNote ?? product.shippingNote},
+      images = ${sql.json(payload.images ?? product.images)},
       updated_at = timezone('utc', now())
     where id = ${productId}
   `;

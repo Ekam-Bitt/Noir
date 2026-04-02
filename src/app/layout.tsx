@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
 
 import { CartProvider } from "@/components/cart/cart-provider";
@@ -7,17 +6,6 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { getAuthViewer } from "@/lib/auth/server";
 import { getStoreSettings } from "@/lib/services/content";
 import type { CSSProperties } from "react";
-
-const display = Cormorant_Garamond({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-const body = Manrope({
-  variable: "--font-body",
-  subsets: ["latin"],
-});
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +33,7 @@ export default async function RootLayout({
   const [settings, viewer] = await Promise.all([getStoreSettings(), getAuthViewer()]);
 
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`}>
+    <html lang="en" className="h-full antialiased" data-scroll-behavior="smooth">
       <body className="min-h-full bg-[#0f0c0b] text-[#f5efe8]">
         <CartProvider>
           <div

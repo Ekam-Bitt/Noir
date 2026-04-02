@@ -7,6 +7,9 @@ export type ProductImage = {
   id: string;
   label: string;
   palette: [string, string, string];
+  url?: string;
+  path?: string;
+  alt?: string;
 };
 
 export type ProductVariant = {
@@ -27,6 +30,7 @@ export type ProductCard = {
   price: number;
   compareAtPrice?: number;
   accent: [string, string, string];
+  primaryImage?: ProductImage;
   soldOut: boolean;
   tags: string[];
 };
@@ -57,6 +61,7 @@ export type CartLine = {
   unitPrice: number;
   accent: [string, string, string];
   maxQuantity: number;
+  image?: string;
 };
 
 export type Cart = {
@@ -72,6 +77,7 @@ export type Cart = {
 };
 
 export type Address = {
+  id?: string;
   name: string;
   line1: string;
   line2?: string;
@@ -80,19 +86,42 @@ export type Address = {
   postalCode: string;
   country: string;
   phone: string;
+  isDefault?: boolean;
 };
 
 export type OrderSummary = {
   id: string;
   orderNumber: string;
   createdAt: string;
+  expectedAt?: string;
   paymentStatus: "paid" | "pending" | "failed" | "refunded";
   fulfillmentStatus: "processing" | "shipped" | "delivered" | "returned";
   total: number;
+  subtotal?: number;
+  shippingFee?: number;
+  taxTotal?: number;
+  discountTotal?: number;
+  paymentProvider?: string;
+  paymentReference?: string;
+  shippingMethod?: string;
+  contactName?: string;
+  contactPhone?: string;
+  shippingAddress?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
   items: Array<{
     productName: string;
+    productSlug: string;
+    productImage?: ProductImage;
     size: string;
+    color: string;
     quantity: number;
+    unitPrice?: number;
   }>;
 };
 
@@ -105,6 +134,7 @@ export type CollectionStory = {
   mood: string;
   palette: [string, string, string];
   featuredProductSlugs: string[];
+  image?: string;
   isVisible?: boolean;
   isFeatured?: boolean;
 };

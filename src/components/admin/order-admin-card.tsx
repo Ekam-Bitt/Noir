@@ -26,12 +26,16 @@ export function OrderAdminCard({ order }: { order: AdminOrder }) {
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus);
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus);
   const [message, setMessage] = useState<string | null>(null);
+  const createdAtLabel =
+    typeof order.createdAt === "string"
+      ? order.createdAt.slice(0, 10)
+      : new Date(order.createdAt).toISOString().slice(0, 10);
 
   return (
     <article className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-[#9e9082]">{order.createdAt.slice(0, 10)}</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-[#9e9082]">{createdAtLabel}</p>
           <h3 className="mt-2 text-3xl tracking-[-0.04em] text-[#f5efe8]">{order.orderNumber}</h3>
           <p className="mt-2 text-sm text-[#c7b9ab]">{order.name} / {order.email}</p>
         </div>

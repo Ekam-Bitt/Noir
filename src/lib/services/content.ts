@@ -46,6 +46,7 @@ type CollectionStoryRow = {
   mood: string;
   palette: CollectionStory["palette"];
   featured_product_slugs: string[];
+  image: string;
   is_visible: boolean;
   is_featured: boolean;
 };
@@ -66,8 +67,10 @@ type FaqRow = {
 let contentSeedPromise: Promise<void> | null = null;
 
 async function ensureContentSeeded() {
-  const sql = getSql();
-  if (!sql) {
+  let sql;
+  try {
+    sql = getSql();
+  } catch {
     return;
   }
 
@@ -125,7 +128,7 @@ async function ensureContentSeeded() {
         for (const story of seededCollectionStories) {
           await sql`
             insert into collection_stories (
-              slug, title, eyebrow, intro, narrative, mood, palette, featured_product_slugs, is_visible, is_featured
+              slug, title, eyebrow, intro, narrative, mood, palette, featured_product_slugs, image, is_visible, is_featured
             ) values (
               ${story.slug},
               ${story.title},
@@ -135,6 +138,7 @@ async function ensureContentSeeded() {
               ${story.mood},
               ${sql.json(story.palette)},
               ${sql.json(story.featuredProductSlugs)},
+              ${story.image ?? null},
               ${story.isVisible ?? true},
               ${story.isFeatured ?? false}
             )
@@ -173,7 +177,10 @@ async function ensureContentSeeded() {
           `;
         }
       }
-    })();
+    })().catch((error) => {
+      contentSeedPromise = null;
+      throw error;
+    });
   }
 
   await contentSeedPromise;
@@ -240,10 +247,14 @@ function mapStoreSettings(row: {
 }
 
 export async function getStoreSettings() {
-  const sql = getSql();
-  await ensureContentSeeded();
-  const [row] = await sql<StoreSettingsRow[]>`select * from store_settings where id = 1 limit 1`;
-  return row ? mapStoreSettings(row) : defaultStoreSettings;
+  try {
+    const sql = getSql();
+    await ensureContentSeeded();
+    const [row] = await sql<StoreSettingsRow[]>`select * from store_settings where id = 1 limit 1`;
+    return row ? mapStoreSettings(row) : defaultStoreSettings;
+  } catch {
+    return defaultStoreSettings;
+  }
 }
 
 export async function updateStoreSettings(payload: Partial<StoreSettings>) {
@@ -315,42 +326,55 @@ function mapStory(row: CollectionStoryRow): CollectionStory {
     mood: row.mood,
     palette: row.palette,
     featuredProductSlugs: row.featured_product_slugs,
+    image: row.image,
     isVisible: row.is_visible,
     isFeatured: row.is_featured,
   };
 }
 
 export async function getCollectionStory(slug: string) {
-  const sql = getSql();
-  await ensureContentSeeded();
-  const [row] = await sql<CollectionStoryRow[]>`
-    select * from collection_stories
-    where slug = ${slug} and is_visible = true
-    limit 1
-  `;
-  return row ? mapStory(row) : null;
+  try {
+    const sql = getSql();
+    await ensureContentSeeded();
+    const [row] = await sql<CollectionStoryRow[]>`
+      select * from collection_stories
+      where slug = ${slug} and is_visible = true
+      limit 1
+    `;
+    return row ? mapStory(row) : null;
+  } catch {
+    return seededCollectionStories.find((story) => story.slug === slug && story.isVisible !== false) ?? null;
+  }
 }
 
 export async function getCollectionStories() {
-  const sql = getSql();
-  await ensureContentSeeded();
-  const rows = await sql<CollectionStoryRow[]>`
-    select * from collection_stories
-    where is_visible = true
-    order by created_at desc
-  `;
-  return rows.map(mapStory);
+  try {
+    const sql = getSql();
+    await ensureContentSeeded();
+    const rows = await sql<CollectionStoryRow[]>`
+      select * from collection_stories
+      where is_visible = true
+      order by created_at desc
+    `;
+    return rows.map(mapStory);
+  } catch {
+    return seededCollectionStories.filter((story) => story.isVisible !== false);
+  }
 }
 
 export async function getFeaturedCollectionStories() {
-  const sql = getSql();
-  await ensureContentSeeded();
-  const rows = await sql<CollectionStoryRow[]>`
-    select * from collection_stories
-    where is_visible = true and is_featured = true
-    order by created_at desc
-  `;
-  return rows.map(mapStory);
+  try {
+    const sql = getSql();
+    await ensureContentSeeded();
+    const rows = await sql<CollectionStoryRow[]>`
+      select * from collection_stories
+      where is_visible = true and is_featured = true
+      order by created_at desc
+    `;
+    return rows.map(mapStory);
+  } catch {
+    return seededCollectionStories.filter((story) => story.isVisible !== false && story.isFeatured);
+  }
 }
 
 export async function createCollectionStory(payload: CollectionStory) {
@@ -358,7 +382,7 @@ export async function createCollectionStory(payload: CollectionStory) {
   await ensureContentSeeded();
   await sql`
     insert into collection_stories (
-      slug, title, eyebrow, intro, narrative, mood, palette, featured_product_slugs, is_visible, is_featured
+      slug, title, eyebrow, intro, narrative, mood, palette, featured_product_slugs, image, is_visible, is_featured
     ) values (
       ${payload.slug},
       ${payload.title},
@@ -368,6 +392,7 @@ export async function createCollectionStory(payload: CollectionStory) {
       ${payload.mood},
       ${sql.json(payload.palette)},
       ${sql.json(payload.featuredProductSlugs)},
+      ${payload.image ?? null},
       ${payload.isVisible ?? true},
       ${payload.isFeatured ?? false}
     )
@@ -393,6 +418,7 @@ export async function updateCollectionStory(slug: string, payload: Partial<Colle
       mood = ${next.mood},
       palette = ${sql.json(next.palette)},
       featured_product_slugs = ${sql.json(next.featuredProductSlugs)},
+      image = ${next.image ?? null},
       is_visible = ${next.isVisible ?? true},
       is_featured = ${next.isFeatured ?? false},
       updated_at = timezone('utc', now())
@@ -402,35 +428,43 @@ export async function updateCollectionStory(slug: string, payload: Partial<Colle
 }
 
 export async function getLookbookEntries() {
-  const sql = getSql();
-  await ensureContentSeeded();
-  const rows = await sql<LookbookEntryRow[]>`
-    select * from lookbook_entries
-    order by created_at desc
-  `;
-  return rows.map(
-    (row): LookbookEntry => ({
-      slug: row.slug,
-      title: row.title,
-      season: row.season,
-      caption: row.caption,
-      palette: row.palette,
-    }),
-  );
+  try {
+    const sql = getSql();
+    await ensureContentSeeded();
+    const rows = await sql<LookbookEntryRow[]>`
+      select * from lookbook_entries
+      order by created_at desc
+    `;
+    return rows.map(
+      (row): LookbookEntry => ({
+        slug: row.slug,
+        title: row.title,
+        season: row.season,
+        caption: row.caption,
+        palette: row.palette,
+      }),
+    );
+  } catch {
+    return seededLookbookEntries;
+  }
 }
 
 export async function getFaqs() {
-  const sql = getSql();
-  await ensureContentSeeded();
-  const rows = await sql<FaqRow[]>`
-    select question, answer
-    from faq_items
-    order by sort_order asc, created_at asc
-  `;
-  return rows.map(
-    (row): FAQItem => ({
-      question: row.question,
-      answer: row.answer,
-    }),
-  );
+  try {
+    const sql = getSql();
+    await ensureContentSeeded();
+    const rows = await sql<FaqRow[]>`
+      select question, answer
+      from faq_items
+      order by sort_order asc, created_at asc
+    `;
+    return rows.map(
+      (row): FAQItem => ({
+        question: row.question,
+        answer: row.answer,
+      }),
+    );
+  } catch {
+    return seededFaqs;
+  }
 }

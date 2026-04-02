@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import type { ProductImage } from "@/lib/types";
+
 const initialState = {
   name: "",
   slug: "",
@@ -26,6 +28,7 @@ const initialState = {
 export function ProductCreateForm() {
   const router = useRouter();
   const [form, setForm] = useState(initialState);
+  const [files, setFiles] = useState<File[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
 
@@ -36,6 +39,37 @@ export function ProductCreateForm() {
         event.preventDefault();
         setSubmitting(true);
         setMessage(null);
+
+        let uploadedImages: ProductImage[] = [];
+
+        try {
+          if (files.length > 0) {
+            uploadedImages = await Promise.all(
+              files.map(async (file, index) => {
+                const body = new FormData();
+                body.append("productSlug", form.slug);
+                body.append("label", index === 0 ? "Campaign" : index === 1 ? "Studio" : `Detail ${index - 1}`);
+                body.append("file", file);
+
+                const uploadResponse = await fetch("/api/admin/uploads/product-image", {
+                  method: "POST",
+                  body,
+                });
+
+                const uploadData = (await uploadResponse.json()) as { error?: string; image?: ProductImage };
+                if (!uploadResponse.ok || !uploadData.image) {
+                  throw new Error(uploadData.error ?? `Unable to upload ${file.name}.`);
+                }
+
+                return uploadData.image;
+              }),
+            );
+          }
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : "Unable to upload images.");
+          setSubmitting(false);
+          return;
+        }
 
         const response = await fetch("/api/admin/products", {
           method: "POST",
@@ -48,6 +82,7 @@ export function ProductCreateForm() {
             sizes: form.sizes.split(",").map((item) => item.trim()).filter(Boolean),
             tags: form.tags.split(",").map((item) => item.trim()).filter(Boolean),
             initialStock: Number(form.initialStock),
+            images: uploadedImages,
           }),
         });
 
@@ -59,6 +94,7 @@ export function ProductCreateForm() {
         }
 
         setForm(initialState);
+        setFiles([]);
         setMessage("Product created.");
         setSubmitting(false);
         router.refresh();
@@ -133,6 +169,21 @@ export function ProductCreateForm() {
           placeholder="Story"
           className="min-h-28 rounded-[1.5rem] border border-[#312a26] bg-transparent px-4 py-3 text-sm outline-none md:col-span-2"
         />
+        <label className="rounded-[1.5rem] border border-dashed border-[#312a26] bg-transparent px-4 py-4 text-sm outline-none md:col-span-2">
+          <span className="mb-3 block text-xs uppercase tracking-[0.22em] text-[#9e9082]">Product images</span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/avif"
+            multiple
+            onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+            className="block w-full text-sm text-[#c7b9ab] file:mr-4 file:rounded-full file:border-0 file:bg-[#f1ddc7] file:px-4 file:py-2 file:text-xs file:font-semibold file:uppercase file:tracking-[0.18em] file:text-[#1a1715]"
+          />
+          {files.length ? (
+            <p className="mt-3 text-sm text-[#c7b9ab]">{files.length} image(s) selected for upload</p>
+          ) : (
+            <p className="mt-3 text-sm text-[#8d7f73]">Upload campaign, studio, and detail images hosted in Supabase Storage.</p>
+          )}
+        </label>
       </div>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/cart/cart-provider";
@@ -41,8 +41,11 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
   const { refreshCart } = useCart();
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<"cancelled" | "failed" | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [isProcessingPayment, setProcessingPayment] = useState(false);
   const [isResolvingPincode, setResolvingPincode] = useState(false);
+  const paymentResolutionRef = useRef(false);
   const [form, setForm] = useState({
     email: customer.email,
     phone: customer.phone ? customer.phone.replace(/\D/g, "").slice(-10) : "",
@@ -221,13 +224,56 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
   };
 
   const orderSummary = session?.cart;
+  const isBusy = isSubmitting || isProcessingPayment;
+  const inlineActionError = error && paymentStatus !== "cancelled" ? error : null;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
       <section className="space-y-6">
-        {error ? (
-          <div className="rounded-[1.5rem] border border-[#4a2f2a] bg-[#241613] p-4 text-sm text-[#e3b2a7]">
+        {error && paymentStatus !== "failed" ? (
+          <div className="hidden rounded-[1.5rem] border border-[#4a2f2a] bg-[#241613] p-4 text-sm text-[#e3b2a7] lg:block">
             {error}
+          </div>
+        ) : null}
+
+        {paymentStatus === "cancelled" ? (
+          <div className="flex items-start gap-3 rounded-[1.5rem] border border-[#4a3a1a] bg-[#221a0d] p-4 text-sm text-[#e8c97a]">
+            <span className="mt-0.5 text-base leading-none">⚠</span>
+            <div className="flex-1">
+              <p className="font-medium">Payment cancelled</p>
+              <p className="mt-1 text-[#c4ab69]">You closed the payment window. Your cart is still intact — complete your order whenever you&apos;re ready.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPaymentStatus(null)}
+              className="text-[#c4ab69] hover:text-[#e8c97a]"
+            >
+              ✕
+            </button>
+          </div>
+        ) : paymentStatus === "failed" ? (
+          <div className="flex items-start gap-3 rounded-[1.5rem] border border-[#4a2f2a] bg-[#241613] p-4 text-sm text-[#e3b2a7]">
+            <span className="mt-0.5 text-base leading-none">✕</span>
+            <div className="flex-1">
+              <p className="font-medium">Payment failed</p>
+              <p className="mt-1 text-[#c4998c]">{error ?? "Your payment could not be processed. Please try a different method or retry."}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setPaymentStatus(null); setError(null); }}
+              className="text-[#c4998c] hover:text-[#e3b2a7]"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
+
+        {isProcessingPayment ? (
+          <div className="rounded-[1.5rem] border border-[#2e332a] bg-[#141813] p-5 text-sm text-[#d4e0cf]">
+            <p className="font-medium text-[#edf5ea]">Processing your payment</p>
+            <p className="mt-2 leading-7 text-[#aac1a2]">
+              Your payment was received. We&apos;re verifying it with Razorpay and preparing your order confirmation.
+            </p>
           </div>
         ) : null}
 
@@ -236,12 +282,12 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
             key: "contact",
             title: "Contact",
             fields: [
-              { name: "email", placeholder: "Email" },
+              { name: "email", placeholder: "Email", readOnly: true },
               { name: "phone", placeholder: "Phone" },
             ],
           },
         ].map((section, index) => (
-          <div key={section.key} className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
+          <div key={section.key} id="checkout-contact" className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
             <p className="text-xs uppercase tracking-[0.24em] text-[#9e9082]">Step {index + 1}</p>
             <h2 className="mt-2 text-3xl tracking-[-0.04em] text-[#f5efe8]">{section.title}</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -251,15 +297,17 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
                     type={field.name === "email" ? "email" : field.name === "phone" ? "tel" : "text"}
                     inputMode={field.name === "phone" ? "tel" : undefined}
                     maxLength={field.name === "phone" ? 10 : undefined}
+                    readOnly={(field as { readOnly?: boolean }).readOnly || isBusy}
                     value={form[field.name as keyof typeof form]}
                     onChange={(event) => {
+                      if ((field as { readOnly?: boolean }).readOnly) return;
                       let nextValue = event.target.value;
                       if (field.name === "phone") {
                         nextValue = nextValue.replace(/\D/g, "").slice(0, 10);
                       }
                       updateField(field.name as keyof typeof form, nextValue);
                     }}
-                    className="w-full rounded-full border border-[#312a26] bg-transparent px-4 py-3 text-sm outline-none"
+                    className={`w-full rounded-full border border-[#312a26] bg-transparent px-4 py-3 text-sm outline-none ${(field as { readOnly?: boolean }).readOnly ? "opacity-60 grayscale cursor-not-allowed" : ""}`}
                     placeholder={field.placeholder}
                   />
                   {fieldErrors[field.name as keyof typeof form] ? (
@@ -359,7 +407,7 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
           </div>
         </div>
 
-        <div className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
+        <div id="checkout-payment" className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
           <p className="text-xs uppercase tracking-[0.24em] text-[#9e9082]">Step 3</p>
           <h2 className="mt-2 text-3xl tracking-[-0.04em] text-[#f5efe8]">Delivery & payment</h2>
           <div className="mt-5 space-y-3">
@@ -419,16 +467,20 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
 
         <button
           type="button"
-          disabled={isSubmitting || !session || !orderSummary?.lines.length}
+          disabled={isBusy || !session || !orderSummary?.lines.length}
           onClick={async () => {
-            setSubmitting(true);
             setError(null);
+            setPaymentStatus(null);
+            paymentResolutionRef.current = false;
+
+            if (!validateForm()) {
+              setError("Please review the highlighted checkout fields.");
+              return;
+            }
+
+            setSubmitting(true);
 
             try {
-              if (!validateForm()) {
-                throw new Error("Please review the highlighted checkout fields.");
-              }
-
               if (form.paymentMethod === "razorpay-test") {
                 if (!window.Razorpay) {
                   throw new Error("Razorpay checkout is not available yet. Please retry in a moment.");
@@ -460,10 +512,16 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
                   },
                   modal: {
                     ondismiss: () => {
+                      if (paymentResolutionRef.current) {
+                        return;
+                      }
+                      setPaymentStatus("cancelled");
                       setSubmitting(false);
                     },
                   },
                   handler: async (paymentResponse: Record<string, string>) => {
+                    paymentResolutionRef.current = true;
+                    setProcessingPayment(true);
                     try {
                       const verifyResponse = await fetch("/api/checkout/session/verify", {
                         method: "POST",
@@ -482,8 +540,11 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
                         throw new Error(verifyData.error ?? "Unable to verify payment.");
                       }
                       await refreshCart();
-                      router.push(`/checkout/success/${verifyData.order.orderNumber}`);
+                      router.replace(`/checkout/success/${verifyData.order.orderNumber}`);
                     } catch (nextError) {
+                      paymentResolutionRef.current = false;
+                      setProcessingPayment(false);
+                      setPaymentStatus("failed");
                       setError(
                         nextError instanceof Error
                           ? nextError.message
@@ -496,14 +557,17 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
                 });
 
                 razorpay.on("payment.failed", (failure: unknown) => {
+                  paymentResolutionRef.current = false;
+                  setProcessingPayment(false);
                   const message =
                     typeof failure === "object" &&
                     failure !== null &&
                     "error" in failure &&
                     typeof (failure as { error?: { description?: string } }).error?.description === "string"
                       ? (failure as { error?: { description?: string } }).error?.description
-                      : "Payment failed.";
-                  setError(message ?? "Payment failed.");
+                      : "Your payment could not be processed. Please retry or use a different method.";
+                  setError(message ?? null);
+                  setPaymentStatus("failed");
                   setSubmitting(false);
                 });
 
@@ -523,17 +587,22 @@ export function CheckoutForm({ customer }: CheckoutFormProps) {
               await refreshCart();
               router.push(`/checkout/success/${data.order.orderNumber}`);
             } catch (nextError) {
+              paymentResolutionRef.current = false;
+              setProcessingPayment(false);
               setError(nextError instanceof Error ? nextError.message : "Unable to place order.");
             } finally {
-              if (form.paymentMethod !== "razorpay-test") {
+              if (form.paymentMethod !== "razorpay-test" || !paymentResolutionRef.current) {
                 setSubmitting(false);
               }
             }
           }}
           className="mt-6 w-full rounded-full bg-[#f1ddc7] px-6 py-4 text-sm font-semibold uppercase tracking-[0.24em] text-[#1a1715] disabled:cursor-not-allowed disabled:bg-[#6c6157]"
         >
-          {isSubmitting ? "Placing order..." : "Place order"}
+          {isProcessingPayment ? "Processing payment..." : isSubmitting ? "Opening checkout..." : "Place order"}
         </button>
+        {inlineActionError ? (
+          <p className="mt-3 text-sm text-[#dba89f] lg:hidden">{inlineActionError}</p>
+        ) : null}
       </aside>
     </div>
   );
