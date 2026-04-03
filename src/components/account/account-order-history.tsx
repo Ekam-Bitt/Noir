@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { OrderSummary } from "@/lib/types";
-import { formatINR } from "@/lib/utils";
+import { formatINR, isSupabaseStorageUrl } from "@/lib/utils";
 
 export function AccountOrderHistory({ orders }: { orders: OrderSummary[] }) {
   if (!orders.length) {
@@ -62,6 +62,7 @@ export function AccountOrderHistory({ orders }: { orders: OrderSummary[] }) {
                           fill
                           sizes="96px"
                           className="object-cover"
+                          unoptimized={isSupabaseStorageUrl(item.productImage.url)}
                         />
                       ) : (
                         <div

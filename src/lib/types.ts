@@ -27,6 +27,8 @@ export type ProductCard = {
   category: "Men" | "Women" | "Unisex";
   subcategory: "Tops" | "Bottoms" | "Accessories";
   collection: string;
+  status: "draft" | "active" | "hidden";
+  launchAt?: string;
   price: number;
   compareAtPrice?: number;
   accent: [string, string, string];
@@ -128,15 +130,16 @@ export type OrderSummary = {
 export type CollectionStory = {
   slug: string;
   title: string;
-  eyebrow: string;
+  chapterNumber: string;
   intro: string;
   narrative: string;
   mood: string;
-  palette: [string, string, string];
   featuredProductSlugs: string[];
   image?: string;
+  launchAt?: string;
   isVisible?: boolean;
   isFeatured?: boolean;
+  isArchived?: boolean;
 };
 
 export type LookbookEntry = {

@@ -17,18 +17,26 @@ const updateSchema = z.object({
   name: z.string().min(2).optional(),
   category: z.enum(["Men", "Women", "Unisex"]).optional(),
   subcategory: z.enum(["Tops", "Bottoms", "Accessories"]).optional(),
-  collection: z.string().min(2).optional(),
+  status: z.enum(["draft", "active", "hidden"]).optional(),
+  launchAt: z.string().datetime().nullable().optional(),
   price: z.number().int().nonnegative().optional(),
   compareAtPrice: z.number().int().nonnegative().nullable().optional(),
   description: z.string().min(10).optional(),
   fit: z.enum(["Oversized", "Regular", "Relaxed"]).optional(),
-  fabric: z.string().min(2).optional(),
-  story: z.string().min(10).optional(),
-  modelInfo: z.string().min(2).optional(),
-  shippingNote: z.string().min(2).optional(),
+  fabric: z.string().optional(),
+  story: z.string().optional(),
+  modelInfo: z.string().optional(),
+  shippingNote: z.string().optional(),
   images: z.array(imageSchema).optional(),
   variantStock: z.record(z.string(), z.number().int().nonnegative()).optional(),
 });
+
+function formatZodError(error: z.ZodError) {
+  return error.issues.map((issue) => {
+    const path = issue.path.join(".") || "field";
+    return `${path}: ${issue.message}`;
+  });
+}
 
 export async function PATCH(
   request: Request,
@@ -46,6 +54,9 @@ export async function PATCH(
     });
     return NextResponse.json({ product });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: formatZodError(error) }, { status: 400 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update product." },
       { status: 400 },

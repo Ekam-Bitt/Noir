@@ -11,14 +11,14 @@ import type {
 } from "@/lib/types";
 
 export const announcement =
-  "Complimentary India shipping above Rs. 6,500. New chapter now live.";
+  "First drop coming soon.";
 
 export const storefrontNavigation: NavItem[] = [
   { label: "Men", href: "/products?category=Men" },
   { label: "Women", href: "/products?category=Women" },
   { label: "All", href: "/products" },
   { label: "New Arrivals", href: "/products?sort=new" },
-  { label: "Collection", href: "/collections/winter-chapter" },
+  { label: "Collection", href: "/collections" },
   { label: "Accessories", href: "/products?subcategory=Accessories" },
 ];
 
@@ -30,43 +30,43 @@ export const adminNavigation: NavItem[] = [
 ];
 
 export const homePageContent: HomePageContent = {
-  heroTitle: "Quiet power, cut for the city after dark.",
+  heroTitle: "Minimalist premium. Loud identity.",
   heroCopy:
-    "A premium clothing label blending noir tailoring, elevated street silhouettes, and cinematic drop storytelling for modern wardrobes.",
-  heroCta: "Shop The Drop",
-  heroSecondaryCta: "Discover Winter Chapter",
+    "A premium fashion storefront built for campaign-led drops, elevated essentials, and a sharp brand world.",
+  heroCta: "Shop",
+  heroSecondaryCta: "View Collections",
   marquee: [
-    "New chapter: Winter 2026",
-    "Limited run essentials",
+    "First drop coming soon",
+    "Campaign-led collections",
     "UPI, cards, wallets at checkout",
-    "Editorial storytelling meets commerce",
+    "India-first premium storefront",
   ],
 };
 
 export const defaultStoreSettings: StoreSettings = {
   brandName: "Noir Chapter",
   logoText: "Noir",
-  brandTagline: "Premium chapterwear",
-  announcement: "Complimentary India shipping above Rs. 6,500. New chapter now live.",
+  brandTagline: "",
+  announcement: "First drop coming soon.",
   heroTitle: homePageContent.heroTitle,
   heroCopy: homePageContent.heroCopy,
   heroCta: homePageContent.heroCta,
   heroSecondaryCta: homePageContent.heroSecondaryCta,
   marquee: homePageContent.marquee,
-  newsletterHeading: "First access to drops, chapter releases, and archive reissues.",
-  newsletterPlaceholder: "Email for drops, early access, and archives",
+  newsletterHeading: "First access to drops and collection launches.",
+  newsletterPlaceholder: "Email for launch updates",
   aboutHeadline:
-    "A premium fashion language built on restraint, texture, and story.",
+    "A premium fashion label shaped by restraint, form, and image.",
   aboutBody:
-    "We design elevated essentials and limited capsules that feel cinematic without losing wearability, with each collection treated like a chapter in a larger brand world.",
+    "The label story, philosophy, and milestones are configured during brand handover and launch preparation.",
   laboratoryTitle: "Laboratory",
   laboratoryBody:
-    "A space for prototype drops, experimental capsules, material studies, and future brand directions.",
-  faqTitle: "Answers for sizing, shipping, care, and checkout.",
-  shippingTitle: "Premium service, clear expectations.",
-  contactEmail: "support@noirchapter.example",
-  contactPhone: "+91 98765 43210",
-  contactHours: "Monday to Saturday, 10 AM to 7 PM IST",
+    "A space for prototype drops, unreleased experiments, and future collection directions.",
+  faqTitle: "Frequently asked questions",
+  shippingTitle: "Shipping and service",
+  contactEmail: "",
+  contactPhone: "",
+  contactHours: "",
   brandCanvas: "#0f0c0b",
   brandInk: "#f5efe8",
   brandAccent: "#f1ddc7",
@@ -97,41 +97,11 @@ export const defaultStoreSettings: StoreSettings = {
 
 export const products: ProductDetail[] = [];
 
-export const collectionStories: CollectionStory[] = [
-  {
-    slug: "winter-chapter",
-    title: "Winter 2026: The Shadow Realm",
-    eyebrow: "CHAPTER ONE",
-    intro: "A collection born in the cold and the dark.",
-    narrative: "The Winter Chapter explores the intersection of thermal protection and cinematic noir. Each piece is built to withstand the elements without sacrificing the silhouette.",
-    mood: "Cinematic, Dark, Precise",
-    palette: ["#0f0c0b", "#1a1614", "#f1ddc7"],
-    featuredProductSlugs: [],
-    isVisible: true,
-    isFeatured: true,
-  }
-];
+export const collectionStories: CollectionStory[] = [];
 
-export const lookbookEntries: LookbookEntry[] = [
-  {
-    slug: "shadow-look-01",
-    title: "Night Navigator",
-    season: "Winter 26",
-    caption: "Layering the Phantom Parka with the Vesper Vest for ultimate urban utility.",
-    palette: ["#0a0a0a", "#1a1a1a", "#2a2a2a"],
-  }
-];
+export const lookbookEntries: LookbookEntry[] = [];
 
-export const faqs: FAQItem[] = [
-  {
-    question: "Do you ship worldwide?",
-    answer: "Currently we only ship within India. Worldwide shipping is planned for Late 2026.",
-  },
-  {
-    question: "How do I care for my Noir pieces?",
-    answer: "Most of our outerwear requires dry cleaning. Please refer to the specific care instructions on each product page.",
-  }
-];
+export const faqs: FAQItem[] = [];
 
 export const accountProfile: CustomerProfile = {
   name: "",

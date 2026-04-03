@@ -18,8 +18,9 @@ const filterLinks = {
 };
 
 export const metadata: Metadata = {
-  title: "Shop All",
-  description: "Browse premium tops, bottoms, accessories, and limited collections.",
+  title: "Shop All Essentials",
+  description:
+    "Explore the full Noir Chapter collection. Premium minimalist silhouettes, crafted essentials, and cinematic limited drops.",
 };
 
 export default async function ProductsPage({

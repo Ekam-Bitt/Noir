@@ -3,6 +3,7 @@ import type { ProductImage } from "@/lib/types";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+let bucketReadyPromise: Promise<void> | null = null;
 
 function sanitizeSegment(value: string) {
   return value
@@ -28,6 +29,36 @@ function extensionForType(contentType: string, originalName: string) {
   }
 }
 
+async function ensureProductImageBucket() {
+  if (!bucketReadyPromise) {
+    const supabase = getSupabaseAdminClient();
+    bucketReadyPromise = (async () => {
+      const { data, error } = await supabase.storage.listBuckets();
+      if (error) {
+        throw new Error(error.message || "Unable to verify storage buckets.");
+      }
+
+      const exists = data?.some((bucket) => bucket.name === PRODUCT_IMAGE_BUCKET);
+      if (exists) return;
+
+      const { error: createError } = await supabase.storage.createBucket(PRODUCT_IMAGE_BUCKET, {
+        public: true,
+        fileSizeLimit: MAX_IMAGE_SIZE_BYTES,
+        allowedMimeTypes: [...ALLOWED_IMAGE_TYPES],
+      });
+
+      if (createError && !/already exists/i.test(createError.message || "")) {
+        throw new Error(createError.message || "Unable to create storage bucket.");
+      }
+    })().catch((error) => {
+      bucketReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await bucketReadyPromise;
+}
+
 export async function uploadProductImage(params: {
   productSlug: string;
   file: File;
@@ -43,6 +74,7 @@ export async function uploadProductImage(params: {
     throw new Error("Image is too large. Keep files under 8 MB.");
   }
 
+  await ensureProductImageBucket();
   const supabase = getSupabaseAdminClient();
   const extension = extensionForType(file.type, file.name);
   const imageId = crypto.randomUUID();
@@ -74,4 +106,44 @@ export async function uploadProductImage(params: {
   };
 
   return image;
+}
+
+export async function uploadCollectionImage(params: {
+  collectionSlug: string;
+  file: File;
+}) {
+  const { collectionSlug, file } = params;
+
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    throw new Error("Unsupported image type. Use JPG, PNG, WebP, or AVIF.");
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error("Image is too large. Keep files under 8 MB.");
+  }
+
+  await ensureProductImageBucket();
+  const supabase = getSupabaseAdminClient();
+  const extension = extensionForType(file.type, file.name);
+  const safeSlug = sanitizeSegment(collectionSlug) || "collection";
+  const safeName = sanitizeSegment(file.name.replace(/\.[^.]+$/, "")) || "banner";
+  const path = `collections/${safeSlug}/${Date.now()}-${safeName}.${extension}`;
+
+  const { error } = await supabase.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .upload(path, file, {
+      cacheControl: "31536000",
+      contentType: file.type,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new Error(error.message || "Unable to upload image.");
+  }
+
+  const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+  return {
+    path,
+    url: data.publicUrl,
+  };
 }

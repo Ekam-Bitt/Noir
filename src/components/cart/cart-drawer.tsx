@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { useCart } from "@/components/cart/cart-provider";
 import { GradientPanel } from "@/components/ui/gradient-panel";
-import { formatINR } from "@/lib/utils";
+import { formatINR, isSupabaseStorageUrl } from "@/lib/utils";
 
 export function CartDrawer() {
   const { cart, error, isDrawerOpen, closeDrawer, updateQuantity, removeItem } = useCart();
@@ -45,7 +45,7 @@ export function CartDrawer() {
                 <div className="flex gap-4">
                   {line.image ? (
                     <div className="relative h-24 w-20 flex-shrink-0 overflow-hidden bg-[#171412]">
-                      <Image src={line.image} alt={line.name} fill className="object-cover" sizes="80px" />
+                      <Image src={line.image} alt={line.name} fill className="object-cover" sizes="80px" unoptimized={isSupabaseStorageUrl(line.image)} />
                     </div>
                   ) : (
                     <GradientPanel palette={line.accent} className="h-24 w-20" />

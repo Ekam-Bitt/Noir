@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { useCart } from "@/components/cart/cart-provider";
 import { GradientPanel } from "@/components/ui/gradient-panel";
-import { formatINR } from "@/lib/utils";
+import { formatINR, isSupabaseStorageUrl } from "@/lib/utils";
 
 export default function CartPage() {
   const { cart, error, updateQuantity, removeItem, applyPromoCode } = useCart();
@@ -39,6 +39,7 @@ export default function CartPage() {
                         fill
                         className="object-cover"
                         sizes="(min-width: 640px) 144px, 100vw"
+                        unoptimized={isSupabaseStorageUrl(line.image)}
                       />
                     </div>
                   ) : (

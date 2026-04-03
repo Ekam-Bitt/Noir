@@ -3,12 +3,14 @@ import Link from "next/link";
 
 import { GradientPanel } from "@/components/ui/gradient-panel";
 import type { ProductCard as ProductCardType } from "@/lib/types";
-import { formatINR } from "@/lib/utils";
+import { formatINR, isSupabaseStorageUrl } from "@/lib/utils";
 
 export function ProductCard({
   product,
+  isPriority = false,
 }: {
   product: ProductCardType;
+  isPriority?: boolean;
 }) {
   const primaryImage = product.primaryImage;
 
@@ -23,12 +25,13 @@ export function ProductCard({
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
               className="object-cover transition duration-700 group-hover:scale-[1.035]"
+              unoptimized={isSupabaseStorageUrl(primaryImage.url)}
+              priority={isPriority}
             />
           </div>
         ) : (
           <GradientPanel
             palette={product.accent}
-            label={product.collection}
             className="aspect-[4/5] transition duration-700 group-hover:scale-[1.035]"
           />
         )}
@@ -38,13 +41,7 @@ export function ProductCard({
             Sold Out
           </span>
         ) : null}
-        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-4 px-4 py-4 opacity-100 transition duration-500 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.28em] text-[#d9c5b0]">{product.collection}</p>
-            <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-[#f5efe8]">View product</p>
-          </div>
-          <p className="text-[12px] uppercase tracking-[0.14em] text-[#f5efe8]">{formatINR(product.price)}</p>
-        </div>
+
       </div>
 
       <div className="space-y-2 pb-2">
@@ -60,13 +57,7 @@ export function ProductCard({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {product.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="text-[10px] uppercase tracking-[0.24em] text-[#a99988]">
-              {tag}
-            </span>
-          ))}
-        </div>
+
       </div>
     </Link>
   );

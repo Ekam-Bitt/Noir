@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { GradientPanel } from "@/components/ui/gradient-panel";
 import type { ProductImage } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, isSupabaseStorageUrl } from "@/lib/utils";
 
 export function ProductGallery({ images }: { images: ProductImage[] }) {
   const [selected, setSelected] = useState(images[0] ?? null);
@@ -25,7 +25,7 @@ export function ProductGallery({ images }: { images: ProductImage[] }) {
                 )}
               >
                 {image.url ? (
-                  <Image src={image.url} alt={image.alt ?? image.label} fill sizes="92px" className="object-cover" />
+                  <Image src={image.url} alt={image.alt ?? image.label} fill sizes="92px" className="object-cover" unoptimized={isSupabaseStorageUrl(image.url)} />
                 ) : (
                   <GradientPanel palette={image.palette} className="aspect-[4/5]" />
                 )}
@@ -43,6 +43,7 @@ export function ProductGallery({ images }: { images: ProductImage[] }) {
                 fill
                 sizes="(max-width: 1024px) 100vw, 60vw"
                 className="object-cover"
+                unoptimized={isSupabaseStorageUrl(selected.url)}
               />
             </div>
           ) : (
@@ -64,7 +65,7 @@ export function ProductGallery({ images }: { images: ProductImage[] }) {
           >
             {image.url ? (
               <div className="relative aspect-square overflow-hidden bg-[#161210]">
-                <Image src={image.url} alt={image.alt ?? image.label} fill sizes="25vw" className="object-cover" />
+                <Image src={image.url} alt={image.alt ?? image.label} fill sizes="25vw" className="object-cover" unoptimized={isSupabaseStorageUrl(image.url)} />
               </div>
             ) : (
               <GradientPanel palette={image.palette} className="aspect-square" />

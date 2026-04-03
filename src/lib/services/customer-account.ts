@@ -10,6 +10,8 @@ type WishlistProductRow = {
   category: ProductCard["category"];
   subcategory: ProductCard["subcategory"];
   collection_name: string;
+  status: ProductCard["status"];
+  launch_at: string | null;
   price: number;
   compare_at_price: number | null;
   accent: ProductCard["accent"];
@@ -426,26 +428,55 @@ export async function getOrderHistoryForUser(user: User): Promise<OrderSummary[]
 
 export async function getWishlistProductsForUser(user: User): Promise<ProductCard[]> {
   const sql = getSql();
-  const rows = await sql<WishlistProductRow[]>`
-    select
-      p.id,
-      p.slug,
-      p.name,
-      p.category,
-      p.subcategory,
-      p.collection_name,
-      p.price,
-      p.compare_at_price,
-      p.accent,
-      p.tags,
-      coalesce(bool_and(v.stock < 1), false) as sold_out
-    from wishlist_items w
-    join catalog_products p on p.id = w.product_id
-    left join catalog_variants v on v.product_id = p.id
-    where w.user_id = ${user.id}::uuid
-    group by p.id
-    order by max(w.created_at) desc
-  `;
+  let rows: WishlistProductRow[];
+
+  try {
+    rows = await sql<WishlistProductRow[]>`
+      select
+        p.id,
+        p.slug,
+        p.name,
+        p.category,
+        p.subcategory,
+        p.collection_name,
+        p.status,
+        p.launch_at,
+        p.price,
+        p.compare_at_price,
+        p.accent,
+        p.tags,
+        coalesce(bool_and(v.stock < 1), false) as sold_out
+      from wishlist_items w
+      join catalog_products p on p.id = w.product_id
+      left join catalog_variants v on v.product_id = p.id
+      where w.user_id = ${user.id}::uuid
+      group by p.id
+      order by max(w.created_at) desc
+    `;
+  } catch {
+    rows = await sql<WishlistProductRow[]>`
+      select
+        p.id,
+        p.slug,
+        p.name,
+        p.category,
+        p.subcategory,
+        p.collection_name,
+        'active'::text as status,
+        null::timestamptz as launch_at,
+        p.price,
+        p.compare_at_price,
+        p.accent,
+        p.tags,
+        coalesce(bool_and(v.stock < 1), false) as sold_out
+      from wishlist_items w
+      join catalog_products p on p.id = w.product_id
+      left join catalog_variants v on v.product_id = p.id
+      where w.user_id = ${user.id}::uuid
+      group by p.id
+      order by max(w.created_at) desc
+    `;
+  }
 
   return rows.map(
     (row): ProductCard => ({
@@ -455,6 +486,8 @@ export async function getWishlistProductsForUser(user: User): Promise<ProductCar
       category: row.category,
       subcategory: row.subcategory,
       collection: row.collection_name,
+      status: row.status,
+      launchAt: row.launch_at ?? undefined,
       price: row.price,
       compareAtPrice: row.compare_at_price ?? undefined,
       accent: row.accent,

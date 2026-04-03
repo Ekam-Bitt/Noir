@@ -19,6 +19,18 @@ export async function generateMetadata({
   return {
     title: product.name,
     description: product.description,
+    openGraph: {
+      title: `${product.name} | Noir Chapter`,
+      description: product.description,
+      images: product.primaryImage?.url ? [{ url: product.primaryImage.url }] : [],
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description: product.description,
+      images: product.primaryImage?.url ? [product.primaryImage.url] : [],
+    },
   };
 }
 

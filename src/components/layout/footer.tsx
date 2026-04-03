@@ -6,7 +6,7 @@ import type { StoreSettings } from "@/lib/types";
 export function Footer({ settings }: { settings: StoreSettings }) {
   const primaryLinks = [
     { href: "/products", label: "Shop" },
-    { href: "/collections/winter-chapter", label: "Collection" },
+    { href: "/collections", label: "Collection" },
     { href: "/archive", label: "Archive" },
     { href: "/about", label: "About" },
   ];

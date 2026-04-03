@@ -72,10 +72,6 @@ h4,
   pointer-events: none;
 }
 
-.hairline {
-  position: relative;
-}
-
 .hairline::after {
   content: "";
   position: absolute;
@@ -84,4 +80,28 @@ h4,
   bottom: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-reveal {
+  animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glass {
+  background: rgba(15, 12, 11, 0.42);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hover-zoom {
+  transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group:hover .hover-zoom {
+  transform: scale(1.08);
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ProductGrid } from "@/components/product/product-grid";
 import { getFeaturedProducts, listProducts } from "@/lib/services/commerce";
 import { getFeaturedCollectionStories } from "@/lib/services/content";
+import { isSupabaseStorageUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,9 @@ export default async function HomePage() {
           <div className="grid gap-px bg-white/8">
             <div className="bg-[#100d0c] p-5 md:p-8">
               <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.32em] text-[#a49585]">
-                <span>Drop 04</span>
+                <span>{featuredStory ? `Chapter ${featuredStory.chapterNumber}` : "Collections"}</span>
                 <span className="text-white/25">/</span>
-                <span>{featuredStory?.title ?? "New Season"}</span>
+                <span>{featuredStory?.title ?? "Coming soon"}</span>
               </div>
 
               <div className="mt-6">
@@ -47,16 +48,14 @@ export default async function HomePage() {
                   href="/products"
                   className="rounded-full bg-[#f1ddc7] px-6 py-3 text-[12px] font-semibold uppercase tracking-[0.22em] text-[#171311] transition hover:bg-[#f7e8d8]"
                 >
-                  Shop Now
+                  {heroLead ? "Shop Now" : "Browse Store"}
                 </Link>
-                {featuredStory ? (
-                  <Link
-                    href={`/collections/${featuredStory.slug}`}
-                    className="rounded-full border border-white/15 px-6 py-3 text-[12px] uppercase tracking-[0.2em] text-[#f5efe8] transition hover:border-[#f1ddc7]"
-                  >
-                    View Collection
-                  </Link>
-                ) : null}
+                <Link
+                  href={featuredStory ? `/collections/${featuredStory.slug}` : "/collections"}
+                  className="rounded-full border border-white/15 px-6 py-3 text-[12px] uppercase tracking-[0.2em] text-[#f5efe8] transition hover:border-[#f1ddc7]"
+                >
+                  {featuredStory ? "View Collection" : "View Collections"}
+                </Link>
               </div>
             </div>
           </div>
@@ -72,6 +71,7 @@ export default async function HomePage() {
                     priority
                     sizes="(max-width: 1024px) 100vw, 65vw"
                     className="object-cover transition duration-700 group-hover:scale-[1.02]"
+                    unoptimized={isSupabaseStorageUrl(heroLead.primaryImage.url)}
                   />
                 ) : (
                   <div
@@ -122,6 +122,7 @@ export default async function HomePage() {
                       fill
                       sizes="(max-width: 1024px) 100vw, 33vw"
                       className="object-cover transition duration-700 group-hover:scale-[1.03]"
+                      unoptimized={isSupabaseStorageUrl(product.primaryImage.url)}
                     />
                   ) : null}
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,7,0.12),rgba(10,8,7,0.72))]" />
@@ -207,6 +208,7 @@ export default async function HomePage() {
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition duration-700 group-hover:scale-[1.03]"
+                    unoptimized={isSupabaseStorageUrl(product.primaryImage.url)}
                   />
                 ) : null}
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(10,8,7,0.74))]" />

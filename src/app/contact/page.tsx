@@ -12,9 +12,15 @@ export default async function ContactPage() {
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <div className="rounded-[2rem] border border-[#26211f] bg-[#120f0d] p-6">
           <h2 className="text-2xl tracking-[-0.04em] text-[#f5efe8]">Client services</h2>
-          <p className="mt-4 leading-8 text-[#c7b9ab]">{settings.contactEmail}</p>
-          <p className="leading-8 text-[#c7b9ab]">{settings.contactPhone}</p>
-          <p className="mt-4 leading-8 text-[#9e9082]">{settings.contactHours}</p>
+          {settings.contactEmail || settings.contactPhone || settings.contactHours ? (
+            <>
+              {settings.contactEmail ? <p className="mt-4 leading-8 text-[#c7b9ab]">{settings.contactEmail}</p> : null}
+              {settings.contactPhone ? <p className="leading-8 text-[#c7b9ab]">{settings.contactPhone}</p> : null}
+              {settings.contactHours ? <p className="mt-4 leading-8 text-[#9e9082]">{settings.contactHours}</p> : null}
+            </>
+          ) : (
+            <p className="mt-4 leading-8 text-[#c7b9ab]">Client service details will appear here before launch.</p>
+          )}
         </div>
         <div className="rounded-[2rem] border border-dashed border-[#38312d] p-6">
           <h2 className="text-2xl tracking-[-0.04em] text-[#f5efe8]">Store locations</h2>

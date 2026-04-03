@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { products as seededProducts } from "@/lib/data/store";
 import { getStoreSettings } from "@/lib/services/content";
 import { mirrorOrderForUser, upsertCustomerAddressForUser } from "@/lib/services/customer-account";
-import { getSql } from "@/lib/server/postgres";
+import { getSql, withSqlRetry } from "@/lib/server/postgres";
 import type {
   Cart,
   CartLine,
@@ -22,6 +22,7 @@ type ProductQuery = {
   size?: string;
   tag?: string;
   sort?: string;
+  slugs?: string[];
 };
 
 type CheckoutPayload = {
@@ -41,6 +42,7 @@ type CheckoutPayload = {
 const PROMO_CODE = "NOIR10";
 const DEFAULT_ACCENT: [string, string, string] = ["#161313", "#6b5649", "#d8c3b3"];
 let commerceSeedPromise: Promise<void> | null = null;
+let catalogProductSchemaPromise: Promise<{ hasStatus: boolean; hasLaunchAt: boolean }> | null = null;
 
 type SqlProductRow = {
   id: string;
@@ -49,6 +51,8 @@ type SqlProductRow = {
   category: ProductDetail["category"];
   subcategory: ProductDetail["subcategory"];
   collection_name: string;
+  status: ProductDetail["status"];
+  launch_at: string | null;
   price: number;
   compare_at_price: number | null;
   accent: [string, string, string];
@@ -225,6 +229,32 @@ async function ensureCommerceSeeded() {
   }
 
   await commerceSeedPromise;
+}
+
+async function getCatalogProductSchema() {
+  if (!catalogProductSchemaPromise) {
+    const sql = getSql();
+    catalogProductSchemaPromise = (async () => {
+      const rows = await sql<Array<{ column_name: string }>>`
+        select column_name
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'catalog_products'
+          and column_name in ('status', 'launch_at')
+      `;
+
+      const names = new Set(rows.map((row) => row.column_name));
+      return {
+        hasStatus: names.has("status"),
+        hasLaunchAt: names.has("launch_at"),
+      };
+    })().catch((error) => {
+      catalogProductSchemaPromise = null;
+      throw error;
+    });
+  }
+
+  return catalogProductSchemaPromise;
 }
 
 function getRazorpayCredentials() {
@@ -498,7 +528,13 @@ function computeTotals(
 }
 
 function toCard(product: ProductDetail): ProductCard {
-  const images = Array.isArray(product.images) ? product.images : [];
+  const images = (Array.isArray(product.images) ? product.images : []).map((img) => ({
+    ...img,
+    url:
+      img.url && !img.url.startsWith("http") && !img.url.startsWith("/")
+        ? `/products/${img.url}`
+        : img.url,
+  }));
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const tags = Array.isArray(product.tags) ? product.tags : [];
 
@@ -509,6 +545,8 @@ function toCard(product: ProductDetail): ProductCard {
     category: product.category,
     subcategory: product.subcategory,
     collection: product.collection,
+    status: product.status,
+    launchAt: product.launchAt,
     price: product.price,
     compareAtPrice: product.compareAtPrice,
     accent: product.accent,
@@ -516,6 +554,19 @@ function toCard(product: ProductDetail): ProductCard {
     soldOut: variants.every((variant) => variant.stock < 1),
     tags,
   };
+}
+
+function isProductLive(product: Pick<ProductDetail, "status" | "launchAt">) {
+  if (product.status === "hidden") return false;
+  if (!product.launchAt) return product.status === "active";
+
+  const launchTime = new Date(product.launchAt).getTime();
+  if (Number.isNaN(launchTime)) {
+    return product.status === "active";
+  }
+
+  if (launchTime > Date.now()) return false;
+  return product.status === "active" || product.status === "draft";
 }
 
 function mergeSqlProducts(rows: SqlProductRow[], variants: SqlVariantRow[]) {
@@ -537,6 +588,8 @@ function mergeSqlProducts(rows: SqlProductRow[], variants: SqlVariantRow[]) {
       category: row.category,
       subcategory: row.subcategory,
       collection: row.collection_name,
+      status: row.status,
+      launchAt: row.launch_at ?? undefined,
       price: row.price,
       compareAtPrice: row.compare_at_price ?? undefined,
       accent: row.accent,
@@ -557,45 +610,64 @@ function mergeSqlProducts(rows: SqlProductRow[], variants: SqlVariantRow[]) {
   });
 }
 
-async function getSqlProducts(): Promise<ProductDetail[]> {
-  const sql = getSql();
+async function getSqlProducts(includeInactive = false): Promise<ProductDetail[]> {
+  return withSqlRetry(async () => {
+    const sql = getSql();
+    const schema = await getCatalogProductSchema();
 
-  await ensureCommerceSeeded();
+    await ensureCommerceSeeded();
 
-  const [rows, variants] = await Promise.all([
-    sql<SqlProductRow[]>`
-      select
-        id,
-        slug,
-        name,
-        category,
-        subcategory,
-        collection_name,
-        price,
-        compare_at_price,
-        accent,
-        tags,
-        description,
-        fit,
-        fabric,
-        care,
-        story,
-        model_info,
-        shipping_note,
-        images,
-        sizes,
-        colors
-      from catalog_products
-      order by created_at asc
-    `,
-    sql<SqlVariantRow[]>`
-      select id, product_id, size, color, stock, sku
-      from catalog_variants
-      order by created_at asc
-    `,
-  ]);
+    if (schema.hasStatus && schema.hasLaunchAt) {
+      await sql`
+        update catalog_products
+        set
+          status = 'active',
+          launch_at = null,
+          updated_at = timezone('utc', now())
+        where status = 'draft'
+          and launch_at is not null
+          and launch_at <= timezone('utc', now())
+      `;
+    }
 
-  return mergeSqlProducts(rows, variants);
+    const [rows, variants] = await Promise.all([
+      sql<SqlProductRow[]>`
+        select
+          id,
+          slug,
+          name,
+          category,
+          subcategory,
+          collection_name,
+          ${schema.hasStatus ? sql`status` : sql`'active'::text as status`},
+          ${schema.hasLaunchAt ? sql`launch_at` : sql`null::timestamptz as launch_at`},
+          price,
+          compare_at_price,
+          accent,
+          tags,
+          description,
+          fit,
+          fabric,
+          care,
+          story,
+          model_info,
+          shipping_note,
+          images,
+          sizes,
+          colors
+        from catalog_products
+        order by created_at asc
+      `,
+      sql<SqlVariantRow[]>`
+        select id, product_id, size, color, stock, sku
+        from catalog_variants
+        order by created_at asc
+      `,
+    ]);
+
+    const products = mergeSqlProducts(rows, variants);
+    return includeInactive ? products : products.filter(isProductLive);
+  });
 }
 
 async function getOrCreateSqlCart(sessionId: string): Promise<{ id: string; promo_code: string | null }> {
@@ -691,7 +763,7 @@ function sortProducts(items: ProductDetail[], sort?: string) {
 }
 
 export async function listProducts(query: ProductQuery = {}) {
-  const products = await getSqlProducts();
+  const products = await getSqlProducts(false);
   const filtered = sortProducts(products, query.sort).filter((product) => {
     if (query.category && product.category !== query.category) return false;
     if (query.subcategory && product.subcategory !== query.subcategory) return false;
@@ -700,6 +772,7 @@ export async function listProducts(query: ProductQuery = {}) {
     if (query.size && !product.variants.some((variant) => variant.size === query.size && variant.stock > 0)) {
       return false;
     }
+    if (query.slugs && !query.slugs.includes(product.slug)) return false;
     return true;
   });
 
@@ -707,17 +780,17 @@ export async function listProducts(query: ProductQuery = {}) {
 }
 
 export async function getProductBySlug(slug: string) {
-  const products = await getSqlProducts();
+  const products = await getSqlProducts(false);
   return products.find((product) => product.slug === slug) ?? null;
 }
 
 export async function getFeaturedProducts() {
-  const products = await getSqlProducts();
+  const products = await getSqlProducts(false);
   return products.slice(0, 4).map(toCard);
 }
 
 export async function getRecommendedProducts(slug: string) {
-  const products = await getSqlProducts();
+  const products = await getSqlProducts(false);
   return products
     .filter((product) => product.slug !== slug)
     .slice(0, 3)
@@ -1189,7 +1262,7 @@ export async function getAdminDashboard() {
 }
 
 export async function getAdminProducts() {
-  return getSqlProducts();
+  return getSqlProducts(true);
 }
 
 export async function getAdminOrders() {
@@ -1273,13 +1346,14 @@ type AdminProductPayload = {
   slug: string;
   category: ProductDetail["category"];
   subcategory: ProductDetail["subcategory"];
-  collection: string;
+  status: ProductDetail["status"];
+  launchAt?: string | null;
   price: number;
   compareAtPrice?: number;
   description: string;
   fit: ProductDetail["fit"];
   fabric: string;
-  story: string;
+  story?: string;
   modelInfo: string;
   shippingNote: string;
   colors: string[];
@@ -1292,6 +1366,7 @@ type AdminProductPayload = {
 export async function createAdminProduct(payload: AdminProductPayload) {
   const sql = getSql();
   await ensureCommerceSeeded();
+  const schema = await getCatalogProductSchema();
   const [existing] = await sql<Array<{ id: string }>>`
     select id from catalog_products where slug = ${payload.slug} limit 1
   `;
@@ -1318,16 +1393,24 @@ export async function createAdminProduct(payload: AdminProductPayload) {
       sku: `${payload.slug.toUpperCase().replace(/-/g, "_")}_${size}_${color}`.replace(/\s+/g, "_"),
     })),
   );
+  const normalizedStatus = payload.status;
+  const normalizedLaunchAt = payload.status === "draft" ? payload.launchAt ?? null : null;
+  const normalizedStory = payload.story?.trim() || payload.description;
 
   await sql`
     insert into catalog_products (
-      id, slug, name, category, subcategory, collection_name, price, compare_at_price,
+      id, slug, name, category, subcategory, collection_name,
+      ${schema.hasStatus ? sql`status,` : sql``}
+      ${schema.hasLaunchAt ? sql`launch_at,` : sql``}
+      price, compare_at_price,
       accent, tags, description, fit, fabric, care, story, model_info, shipping_note, images, sizes, colors
     ) values (
-      ${productId}, ${payload.slug}, ${payload.name}, ${payload.category}, ${payload.subcategory}, ${payload.collection},
+      ${productId}, ${payload.slug}, ${payload.name}, ${payload.category}, ${payload.subcategory}, ${"Unassigned"},
+      ${schema.hasStatus ? sql`${normalizedStatus},` : sql``}
+      ${schema.hasLaunchAt ? sql`${normalizedLaunchAt},` : sql``}
       ${payload.price}, ${payload.compareAtPrice ?? null}, ${sql.json(accent)}, ${sql.json(payload.tags)},
       ${payload.description}, ${payload.fit}, ${payload.fabric}, ${sql.json(["Cold wash", "Line dry", "Handle with care"])},
-      ${payload.story}, ${payload.modelInfo}, ${payload.shippingNote}, ${sql.json(images)}, ${sql.json(payload.sizes)}, ${sql.json(payload.colors)}
+      ${normalizedStory}, ${payload.modelInfo}, ${payload.shippingNote}, ${sql.json(images)}, ${sql.json(payload.sizes)}, ${sql.json(payload.colors)}
     )
   `;
 
@@ -1338,37 +1421,47 @@ export async function createAdminProduct(payload: AdminProductPayload) {
     `;
   }
 
-  const products = await getSqlProducts();
+  const products = await getSqlProducts(true);
   return products?.find((product) => product.id === productId) ?? null;
 }
 
 export async function updateAdminProduct(
   productId: string,
   payload: Partial<
-    Pick<
-      ProductDetail,
-      | "name"
-      | "category"
-      | "subcategory"
-      | "collection"
-      | "price"
-      | "compareAtPrice"
-      | "description"
-      | "fit"
-      | "fabric"
-      | "story"
-      | "modelInfo"
-      | "shippingNote"
+    Omit<
+      Pick<
+        ProductDetail,
+        | "name"
+        | "category"
+        | "subcategory"
+        | "status"
+        | "price"
+        | "compareAtPrice"
+        | "description"
+        | "fit"
+        | "fabric"
+        | "modelInfo"
+        | "shippingNote"
+      >,
+      never
     >
-  > & { variantStock?: Record<string, number>; images?: ProductDetail["images"] },
+  > & { launchAt?: string | null; variantStock?: Record<string, number>; images?: ProductDetail["images"] },
 ) {
   const sql = getSql();
   await ensureCommerceSeeded();
-  const products = await getSqlProducts();
+  const schema = await getCatalogProductSchema();
+  const products = await getSqlProducts(true);
   const product = products?.find((entry) => entry.id === productId);
   if (!product) {
     throw new Error("Product not found.");
   }
+  const nextStatus = payload.status ?? product.status;
+  const nextLaunchAt =
+    nextStatus === "draft"
+      ? payload.launchAt !== undefined
+        ? payload.launchAt
+        : product.launchAt ?? null
+      : null;
 
   await sql`
     update catalog_products
@@ -1376,14 +1469,15 @@ export async function updateAdminProduct(
       name = ${payload.name ?? product.name},
       category = ${payload.category ?? product.category},
       subcategory = ${payload.subcategory ?? product.subcategory},
-      collection_name = ${payload.collection ?? product.collection},
+      ${schema.hasStatus ? sql`status = ${nextStatus},` : sql``}
+      ${schema.hasLaunchAt ? sql`launch_at = ${nextLaunchAt},` : sql``}
       price = ${payload.price ?? product.price},
       compare_at_price = ${payload.compareAtPrice ?? product.compareAtPrice ?? null},
       accent = ${sql.json(payload.images?.[0]?.palette ?? product.accent)},
       description = ${payload.description ?? product.description},
       fit = ${payload.fit ?? product.fit},
       fabric = ${payload.fabric ?? product.fabric},
-      story = ${payload.story ?? product.story},
+      story = ${payload.description ?? product.description},
       model_info = ${payload.modelInfo ?? product.modelInfo},
       shipping_note = ${payload.shippingNote ?? product.shippingNote},
       images = ${sql.json(payload.images ?? product.images)},
@@ -1401,8 +1495,49 @@ export async function updateAdminProduct(
     }
   }
 
-  const refreshed = await getSqlProducts();
+  const refreshed = await getSqlProducts(true);
   return refreshed?.find((entry) => entry.id === productId) ?? null;
+}
+
+export async function syncProductsForDrop(params: {
+  title: string;
+  launchAt?: string;
+  selectedProductSlugs: string[];
+  previousProductSlugs?: string[];
+  archive?: boolean;
+}) {
+  const sql = getSql();
+  const schema = await getCatalogProductSchema();
+  const selected = [...new Set(params.selectedProductSlugs)];
+  const previous = [...new Set(params.previousProductSlugs ?? [])];
+  const removed = previous.filter((slug) => !selected.includes(slug));
+  const shouldSchedule = Boolean(params.launchAt && new Date(params.launchAt).getTime() > Date.now());
+  const nextStatus = params.archive ? "hidden" : shouldSchedule ? "draft" : "active";
+  const nextLaunchAt = params.archive ? null : shouldSchedule ? params.launchAt ?? null : null;
+
+  for (const slug of selected) {
+    await sql`
+      update catalog_products
+      set
+        collection_name = ${params.title},
+        ${schema.hasStatus ? sql`status = ${nextStatus},` : sql``}
+        ${schema.hasLaunchAt ? sql`launch_at = ${nextLaunchAt},` : sql``}
+        updated_at = timezone('utc', now())
+      where slug = ${slug}
+    `;
+  }
+
+  for (const slug of removed) {
+    await sql`
+      update catalog_products
+      set
+        collection_name = 'Unassigned',
+        ${schema.hasStatus ? sql`status = 'draft',` : sql``}
+        ${schema.hasLaunchAt ? sql`launch_at = null,` : sql``}
+        updated_at = timezone('utc', now())
+      where slug = ${slug}
+    `;
+  }
 }
 
 export async function deleteAdminProduct(productId: string) {
